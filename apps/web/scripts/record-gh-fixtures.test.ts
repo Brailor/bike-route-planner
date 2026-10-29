@@ -1,0 +1,65 @@
+// @vitest-environment node
+// Records GraphHopper responses as test fixtures (ADR 0004). Needs the engine on :8989.
+// Run: pnpm --filter web fixtures:record
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { it } from 'vitest';
+import { buildRouteRequestBody } from '../src/routing/graphhopper/request';
+import type { RouteRequest } from '../src/routing/types';
+
+const GH = process.env.GH_URL ?? 'http://localhost:8989';
+const OUT = join(import.meta.dirname, '../src/routing/graphhopper/__fixtures__');
+
+// Short routes in the Lobau (Vienna): mixed asphalt, gravel tracks and untagged ways, small enough to commit.
+const CASES: { name: string; input: RouteRequest }[] = [
+  {
+    name: 'gravel-offroad-80',
+    input: {
+      waypoints: [
+        [16.559, 48.2004],
+        [16.59, 48.19],
+      ],
+      settings: { profile: 'gravel', offroadPreference: 80 },
+    },
+  },
+  {
+    name: 'road-via',
+    input: {
+      waypoints: [
+        [16.559, 48.2004],
+        [16.575, 48.197],
+        [16.59, 48.19],
+      ],
+      settings: { profile: 'road' },
+    },
+  },
+  {
+    name: 'out-of-bounds',
+    input: {
+      waypoints: [
+        [2.35, 48.85],
+        [16.37, 48.21],
+      ],
+      settings: { profile: 'gravel' },
+    },
+  },
+];
+
+it.runIf(process.env.RECORD_GH_FIXTURES)('records GraphHopper fixtures', async () => {
+  for (const { name, input } of CASES) {
+    const request = buildRouteRequestBody(input);
+    const res = await fetch(`${GH}/route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    const fixture = {
+      name,
+      input,
+      request,
+      status: res.status,
+      response: await res.json(),
+    };
+    writeFileSync(join(OUT, `${name}.json`), JSON.stringify(fixture, null, 2) + '\n');
+  }
+});

@@ -103,45 +103,88 @@ services/routing/
 
 **Tests & docs**
 
-- [ ] Vitest + React Testing Library, plus one smoke test
-- [ ] Playwright, plus one smoke test (the map renders)
-  - `@playwright/test` 1.64.1 + Chromium installed (used for the map screenshots); config and test not written yet
+- [x] Vitest + React Testing Library, plus one smoke test
+  - Vitest 5.0.4 (jsdom), RTL 16.3.3. `MapView.test.tsx`: style URL, expanded attribution, explicit worker URL.
+    Confirmed it fails when the attribution is switched to compact
+- [x] Playwright, plus one smoke test (the map renders)
+  - `e2e/map.spec.ts`: canvas visible, an OpenFreeMap `.pbf` tile loads (proves the worker runs), attribution
+    shown, no console errors. Confirmed it fails without the `workerUrl` fix, and that with `CI=1` it starts and
+    stops its own Vite server
 - [ ] GitHub Actions: lint, typecheck, unit tests, e2e (fixture mode)
-- [ ] ADRs 0001–0004 in `docs/adr/`
+  - `.github/workflows/ci.yml` written (format, lint, typecheck, unit, Playwright; report uploaded on failure).
+    Not verified: needs a run on GitHub (local actionlint install was blocked)
+- [x] ADRs 0001–0004 in `docs/adr/`
+  - Plus 0005: TypeScript 7 for compiling, with TS 6 for tooling
 
 **Spikes (cheap, early, de-risking)**
 
 - [ ] Gravel sanity check: route 3–5 known gravel/MTB areas (e.g. Wienerwald, Leithagebirge) with `routing.http`, then compare against local knowledge and satellite imagery
+  - Engine side done: [docs/spikes/2026-10-29-gravel.md](spikes/2026-10-29-gravel.md). Verdict on paper: keep
+    GraphHopper. Default gravel is 0–12% unpaved; "likely paved" penalty × 0.4 + cancelled cycle-network boost
+    gives 55–77% likely unpaved at ≤ 1.16× distance
+  - Still open: ground truth on the GPX files (needs local knowledge), and the forest-road legality tag check
+    (Overpass timed out)
 - [ ] Transitous: query a few MÁV and ÖBB journeys; check coverage and whether `bikes_allowed` is present
+  - Feed side done: [docs/spikes/2026-10-29-transit.md](spikes/2026-10-29-transit.md). Coverage good (incl.
+    cross-border); `bikes_allowed` absent from all rail feeds (0 of 57,169 trips); Austrian feed ends 2026-12-12
+  - Not done: live `/plan` queries. Blocked on Transitous policy (open-source only; this repo is private, no
+    licence). Decide: publish under an OSS licence, or self-host MOTIS
 
 ### M1: Profiles + core routing
 
 **Core (pure, unit-tested)**
 
-- [ ] Domain types from the README's data model in `apps/web/src/types.ts`
-- [ ] `RoutingEngine` interface + `GraphHopperEngine` (POST `/gh/route`, `points_encoded=false`, `elevation=true`, `details=[surface, road_class, track_type, smoothness, average_slope]`)
-- [ ] Response mapping → `PlannedRoute`, with tests against recorded fixtures
-- [ ] `buildCustomModel(settings)`: profile base + overrides (gravel/MTB off-road slider, avoid main roads), within the LM penalise-only constraint
-- [ ] Surface breakdown: map OSM `surface` values to asphalt / gravel / ground / unknown, as % of distance
-- [ ] Elevation series (cumulative distance × elevation) and ascent with light smoothing
-- [ ] GPX export (track with elevation, plus route name)
+- [x] Domain types from the README's data model in `apps/web/src/types.ts`
+- [x] `RoutingEngine` interface + `GraphHopperEngine` (POST `/gh/route`, `points_encoded=false`, `elevation=true`, `details=[surface, road_class, track_type, smoothness, average_slope]`)
+  - Details are `surface, road_class, track_type, osm_way_id` (what the breakdown and M2 flags need). Typed
+    `RoutingError` (`no_route` / `unavailable` / `bad_request`); aborts pass through
+- [x] Response mapping → `PlannedRoute`, with tests against recorded fixtures
+  - Maps to the engine-neutral `RouteResult` (geometry + per-segment attribute spans). Fixtures recorded from the
+    live engine via `pnpm --filter web fixtures:record`; a test fails if the request builder drifts from them
+- [x] `buildCustomModel(settings)`: profile base + overrides (gravel/MTB off-road slider, avoid main roads), within the LM penalise-only constraint
+  - Per the gravel spike: penalise _likely_ paved (incl. untagged ordinary roads and `grade1` tracks), not just
+    tagged paved, and cancel the cycle-network boost on likely-paved ways
+  - Slider: 50 = neutral; towards 100 penalises likely-paved down to × 0.3 (+ network cancel); towards 0 penalises
+    likely-unpaved. Unit test sweeps all settings for LM-safe factors; 6 generated models accepted by the live engine
+- [x] Surface breakdown: map OSM `surface` values to asphalt / gravel / ground / unknown, as % of distance
+  - Categories paved / gravel / ground / unknown; missing tags inferred from road class + track grade and reported
+    separately as `inferredMeters`
+- [x] Elevation series (cumulative distance × elevation) and ascent with light smoothing
+  - Ascent comes from GraphHopper (server-side SRTM smoothing, see `config.yml`); no extra client smoothing
+- [x] GPX export (track with elevation, plus route name)
+  - `toGpx` + `gpxFileName`; tested for well-formedness, lat/lon order and escaping
 
 **UI**
 
-- [ ] Click map to add waypoints: the first is the start, the last is the end, and the rest are intermediate. Drag to move, click a marker to remove
-- [ ] Insert a waypoint by dragging the route line
-- [ ] Profile switcher (road / gravel / MTB) and settings panel (off-road slider, avoid main roads)
-- [ ] Re-route on change: debounce and abort in-flight requests
-- [ ] Route line on the map, coloured by surface
-- [ ] Stats panel: distance, ascent, estimated time (GraphHopper's time for now; replaced in M3), surface breakdown bar
-- [ ] Elevation chart (SVG), with hover linked both ways to a marker on the map
-- [ ] Export GPX button
-- [ ] Error and loading states (engine down, no route found)
+- [x] Click map to add waypoints: the first is the start, the last is the end, and the rest are intermediate. Drag to move, click a marker to remove
+  - Confirmed in Chromium against the live engine. **Gotcha:** markers sit inside the map's canvas container, so
+    presses on them also reach the map; and display-only markers (hover dot) must have `pointer-events: none` on
+    their wrapper or they swallow presses on waypoints beneath
+- [x] Insert a waypoint by dragging the route line
+  - Inserted into the leg it was dragged from (`insertionIndex`, unit-tested); a plain click on the line does nothing
+- [x] Profile switcher (road / gravel / MTB) and settings panel (off-road slider, avoid main roads)
+  - Each profile keeps its own settings. Defaults: gravel off-road 80, MTB 60 (gravel base is road-like)
+- [x] Re-route on change: debounce and abort in-flight requests
+  - 250 ms debounce; `useRouting.test.ts` covers debounce, abort, latest-result-wins and errors
+- [x] Route line on the map, coloured by surface
+  - Dashed where the surface is inferred (missing OSM tag)
+- [x] Stats panel: distance, ascent, estimated time (GraphHopper's time for now; replaced in M3), surface breakdown bar
+- [x] Elevation chart (SVG), with hover linked both ways to a marker on the map
+- [x] Export GPX button
+- [x] Error and loading states (engine down, no route found)
+- [x] Undo/redo for waypoint edits (added on request): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y, plus buttons
+  - Covers add/insert/move/remove/clear (100 steps); profile and settings changes aren't recorded. Unit + e2e tested
 
 **Done-when checks**
 
-- [ ] Playwright: place waypoints → route appears → switch profile → route changes → move slider → route changes → export GPX
+- [x] Playwright: place waypoints → route appears → switch profile → route changes → move slider → route changes → export GPX
+  - `e2e/plan-route.spec.ts` with recorded fixtures (ADR 0004): route, hover link, profile switch, slider and
+    avoid-main-roads change the request, GPX download. Plus engine-down and no-route tests
+  - With fixtures the slider can't change the route itself; that part was confirmed live (Donau-Auen: road 99%
+    paved; gravel 80 → 47% gravel; gravel 100 → 76% gravel; gravel 0 → 99% paved)
 - [ ] Manual check with the live engine on the spike's gravel areas
+  - Scripted live run done for Donau-Auen only. Needs you: try the other areas in the app
+- [ ] `e2e:live` (ADR 0004): opt-in Playwright run against the real engine. Not written yet
 
 ### M2: Flag unrideable sections
 
@@ -169,7 +212,10 @@ services/routing/
 - [ ] Home location setting
 - [ ] `TransitEngine` adapter + MOTIS/Transitous implementation (respect its usage policy)
 - [ ] Bike-carriage marking per leg + user "bike not allowed" corrections
+  - GTFS has no `bikes_allowed` for ÖBB/MÁV/GYSEV: use rules by train category (route short name) + corrections;
+    don't rely on MOTIS `requireBikeTransport` (transit spike)
 - [ ] Car routing via the GraphHopper car profile; park-at-end + train-to-start combos
+  - Car currently snaps onto Austrian forest tracks: enable `country_rules` and penalise `road_access` (gravel spike)
 - [ ] Ranked options UI, both directions
 - [ ] Hungary: add `hungary-latest.osm.pbf` (a merged extract or a second instance)
 

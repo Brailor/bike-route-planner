@@ -1,0 +1,34 @@
+{
+  "name": "out-of-bounds",
+  "input": {
+    "waypoints": [
+      [2.35, 48.85],
+      [16.37, 48.21]
+    ],
+    "settings": {
+      "profile": "gravel"
+    }
+  },
+  "request": {
+    "profile": "gravel",
+    "points": [
+      [2.35, 48.85],
+      [16.37, 48.21]
+    ],
+    "points_encoded": false,
+    "elevation": true,
+    "instructions": false,
+    "details": ["surface", "road_class", "track_type", "osm_way_id"]
+  },
+  "status": 400,
+  "response": {
+    "message": "Point 0 is out of bounds: 48.85,2.35, the bounds are: 9.2712449,17.1785223,46.3691647,49.0270459,-7.39,3723.907299572711",
+    "hints": [
+      {
+        "message": "Point 0 is out of bounds: 48.85,2.35, the bounds are: 9.2712449,17.1785223,46.3691647,49.0270459,-7.39,3723.907299572711",
+        "details": "com.graphhopper.util.exceptions.PointOutOfBoundsException",
+        "point_index": 0
+      }
+    ]
+  }
+}

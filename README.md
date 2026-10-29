@@ -237,7 +237,8 @@ interface UserSettings {
 
 ## Open questions
 
-- How well does Transitous cover Hungarian rail (MÁV)? Verify early. Fallbacks: other GTFS sources or an unofficial MÁV endpoint.
-- How reliable is bike-carriage data (`bikes_allowed` in GTFS) for ÖBB and MÁV? It's probably sparse, so plan for user corrections.
+- ~~How well does Transitous cover Hungarian rail (MÁV)?~~ Good on paper, incl. cross-border lines; the MÁV feed is a community conversion. See `docs/spikes/2026-10-29-transit.md`.
+- ~~How reliable is bike-carriage data (`bikes_allowed` in GTFS) for ÖBB and MÁV?~~ There is none: the column is absent from the ÖBB, MÁV and GYSEV feeds. Use rules by train category plus user corrections.
+- Transitous public API vs self-hosted MOTIS: the public API is for open-source projects only (published under an OSS licence, `User-Agent` with a contact). Decide before M4.
 - ~~Exact GraphHopper version and encoded-value names.~~ Resolved: GraphHopper 11.1; see `services/routing/config.yml`.
 - Workout file format to support first (ZWO vs Intervals.icu).

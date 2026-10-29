@@ -1,6 +1,294 @@
+:root {
+  --fg: #1f2933;
+  --muted: #616e7c;
+  --border: #d9e2ec;
+  --bg: #ffffff;
+  --accent: #c27c0e;
+  --accent-fg: #ffffff;
+  --error: #b42318;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  color: var(--fg);
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+}
+
+/* Side panel floats over the map; becomes a bottom sheet on narrow screens. */
+.sidebar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 320px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  background: var(--bg);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 50%;
+    border-radius: 12px 12px 0 0;
+  }
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar h1 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.field__label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.field__scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.status {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.status--error {
+  color: var(--error);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+}
+
+.stats dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stats dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.surface__bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.surface__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.elevation {
+  margin: 0;
+}
+
+.elevation svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+.elevation__area {
+  fill: rgb(194 124 14 / 0.18);
+}
+
+.elevation__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.elevation__label {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+.elevation__hover line {
+  stroke: var(--fg);
+  stroke-width: 0.75;
+}
+
+.elevation__hover circle {
+  fill: var(--fg);
+}
+
+.elevation__caption {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.waypoint {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: grab;
+}
+
+.waypoint--start {
+  background: #2f7d4f;
+}
+
+.waypoint--end {
+  background: #b42318;
+}
+
+.waypoint--via {
+  background: #2563eb;
+}
+
+.waypoint--ghost {
+  opacity: 0.7;
+}
+
+.hover-dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--fg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  pointer-events: none;
 }

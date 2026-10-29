@@ -10,7 +10,7 @@ graphhopper:
   # GraphHopper 11.1's built-ins (road = racingbike, gravel = bike, mtb = mtb, car = car) with bike_elevation.json merged in.
   # All profiles use LM (hybrid mode) so a per-request custom_model can be sent. LM constraint: a request's
   # custom model may only *lower* weights (every multiply_by must be within [0, 1], distance_influence may only
-  # go up), so these base models must be the most permissive variant of each profile. See docs/adr.
+  # go up), so these base models must be the most permissive variant of each profile. See docs/adr/0002.
   custom_models.directory: models
   profiles:
     - name: road
