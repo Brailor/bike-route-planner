@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+dist
+coverage
+playwright-report
+test-results
+services/routing/data
+
+# Hand-formatted by the author
+README.md

@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Routing engine: downloaded jar, OSM extracts and graph cache
+services/routing/data/
+*.jar
+
+# Playwright
+playwright-report/
+test-results/
