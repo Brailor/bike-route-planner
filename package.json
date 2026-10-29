@@ -14,13 +14,17 @@
     "e2e": "pnpm -r --if-present e2e",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "routing:setup": "services/routing/scripts/setup.sh",
+    "routing:start": "services/routing/scripts/start.sh"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@typescript/native": "npm:typescript@7.0.2",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.13.0",
     "prettier": "3.9.10",
     "typescript": "npm:@typescript/typescript6@6.0.2",
