@@ -17,11 +17,9 @@ import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
 import { SURFACE_COLORS } from '../ui/surfaceColors';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
+import { INITIAL_VIEW } from './view';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
-
-// Vienna; the first target region is Austria.
-const INITIAL_VIEW = { longitude: 16.37, latitude: 48.21, zoom: 9 };
 
 /** Wide invisible line on top of the route, so it is easy to hover and grab. */
 const ROUTE_HIT_LAYER = 'route-hit';

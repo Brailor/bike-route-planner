@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "e2e": "pnpm -r --if-present e2e",
+    "e2e:live": "pnpm -r --if-present e2e:live",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

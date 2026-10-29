@@ -100,6 +100,8 @@ pnpm dev
 `pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
 Sample requests are in `services/routing/routing.http`.
 
+Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses; what CI runs), `pnpm e2e:live` (Playwright against the running engine; opt-in, run it after changing models, config or the OSM data).
+
 `config.yml` requirements:
 - `datareader.file` points at the `.pbf` in `data/`
 - encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope` (plus `osm_way_id` for flags)

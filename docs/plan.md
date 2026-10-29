@@ -193,7 +193,13 @@ services/routing/
     paved; gravel 80 → 47% gravel; gravel 100 → 76% gravel; gravel 0 → 99% paved)
 - [ ] Manual check with the live engine on the spike's gravel areas
   - Scripted live run done for Donau-Auen only. Needs you: try the other areas in the app
-- [ ] `e2e:live` (ADR 0004): opt-in Playwright run against the real engine. Not written yet
+- [x] `e2e:live` (ADR 0004): opt-in Playwright run against the real engine
+  - `pnpm e2e:live` (needs `pnpm routing:start`; not in `pnpm e2e` or CI). 9 tests in ~4 s: recorded fixtures vs
+    live engine (status, details, distance ±10%), every profile/setting accepted under LM, Hungary + cross-border
+    routes, and the app against the real engine (Donau-Auen: road ≥ 90% paved, slider 100 raises gravel, slider
+    0 back to ≥ 90% paved)
+  - Confirmed it fails usefully: engine down → "not reachable … pnpm routing:start"; an LM-violating factor → lists
+    each rejected setting with GraphHopper's message. (`buildCustomModel` also clamps to [0, 1] as a safety net)
 
 ### M2: Flag unrideable sections
 
