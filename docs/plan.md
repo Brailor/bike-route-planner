@@ -203,7 +203,11 @@ services/routing/
 
 ### M2: Flag unrideable sections
 
-- [ ] IndexedDB storage layer (`idb`) for flags
+- [x] IndexedDB storage layer (`idb`) for flags
+  - `storage/db.ts` (`openPlannerDb`: versioned upgrade steps, `flags` store keyed by `id`, `createdAt` index) and
+    `storage/flagStore.ts` (`FlagStore`: list oldest first / save-or-replace / remove). idb 8.0.4; tests on
+    fake-indexeddb 6.2.5 (6.2.6 was under two weeks old), incl. survive close + reopen. Each test confirmed to fail
+    against a matching break (unordered list, `add` instead of `put`, no-op remove). Not wired into the UI yet
 - [ ] Segment selection on the route (two handles on the line, or click a segment)
 - [ ] Flag form (reason + note); flag layer on the map, toggleable, editable, deletable
 - [ ] Flag → buffered avoid-polygon (turf) → custom-model `areas` with priority 0
