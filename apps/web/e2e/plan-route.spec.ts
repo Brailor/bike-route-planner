@@ -1,37 +1,13 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { fixture, openMap, stubRouting as stub } from './support';
 
 // GraphHopper is replaced by recorded responses (ADR 0004): road → road fixture, everything else → gravel fixture.
-const fixture = (name: string) =>
-  JSON.parse(
-    readFileSync(
-      join(import.meta.dirname, '../src/routing/graphhopper/__fixtures__', `${name}.json`),
-      'utf8',
-    ),
-  ) as { status: number; response: { paths: { points: { coordinates: number[][] } }[] } };
 const gravel = fixture('gravel-offroad-80');
 const road = fixture('road-via');
 
-interface RouteBody {
-  profile: string;
-  custom_model?: { priority?: { multiply_by: string }[] };
-}
-
-async function stubRouting(page: Page) {
-  const requests: RouteBody[] = [];
-  await page.route('**/gh/route', async (route) => {
-    const body = route.request().postDataJSON() as RouteBody;
-    requests.push(body);
-    await route.fulfill({ json: (body.profile === 'road' ? road : gravel).response });
-  });
-  return requests;
-}
-
-async function openMap(page: Page) {
-  await page.goto('/');
-  await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap');
-}
+const stubRouting = (page: Page) =>
+  stub(page, (body) => (body.profile === 'road' ? road : gravel).response);
 
 async function placeTwoPoints(page: Page) {
   await page.mouse.click(800, 350);

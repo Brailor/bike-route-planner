@@ -36,6 +36,9 @@ const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const PASSIVE = { pointerEvents: 'none' } as const;
 
+/** DOM click events already handled by a waypoint marker; the map ignores them. */
+const markerClicks = new WeakSet<Event>();
+
 const surfaceColor: ExpressionSpecification = [
   'match',
   ['get', 'category'],
@@ -75,9 +78,12 @@ export function MapView() {
 
   const onRouteFeature = (e: MapLayerMouseEvent) => Boolean(e.features?.length);
   // Markers live inside the map's canvas container, so pressing, clicking or dragging one also reaches the map,
-  // which would otherwise add a waypoint or start a line drag underneath the marker. Checked geometrically: the
-  // DOM target isn't reliable while markers re-render under the pointer.
+  // which would otherwise add a waypoint or start a line drag underneath the marker. Two checks, because each
+  // misses a case: a click a marker already handled is recognised by its event (by the time the map sees it, the
+  // marker may be removed and unmounted), and a press is recognised by position (the DOM target isn't reliable
+  // while markers re-render under the pointer).
   const onMarker = (e: MapLayerMouseEvent) =>
+    markerClicks.has(e.originalEvent) ||
     waypoints.some((w) => {
       const p = e.target.project(w);
       return Math.hypot(p.x - e.point.x, p.y - e.point.y) <= MARKER_RADIUS_PX;
@@ -185,7 +191,10 @@ export function MapView() {
             latitude={lat}
             draggable
             onDragEnd={(e: MarkerDragEvent) => moveWaypoint(i, toLonLat(e))}
-            onClick={() => removeWaypoint(i)}
+            onClick={(e) => {
+              markerClicks.add(e.originalEvent);
+              removeWaypoint(i);
+            }}
           >
             <div
               className={`waypoint waypoint--${label.kind}`}

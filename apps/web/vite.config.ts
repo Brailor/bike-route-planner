@@ -21,5 +21,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**'],
+      // main.tsx is bootstrapping only; the map's WebGL behaviour is covered by Playwright (e2e/).
+      exclude: ['**/*.test.*', 'src/test/**', '**/__fixtures__/**', 'src/main.tsx'],
+      reporter: ['text-summary', 'html'],
+    },
   },
 });

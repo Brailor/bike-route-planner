@@ -228,6 +228,8 @@ interface UserSettings {
 - Every milestone ships with tests: unit tests for transforms and scoring, and a Playwright e2e for the main flow.
 - Record architectural decisions as short ADRs in `docs/adr/`.
 - Attribute OpenStreetMap contributors on the map (ODbL).
+- When adding a new feature add new test cases if possible
+- When modifing exisiting code, make sure that the exisiting tests are passing
 
 ## Non-goals (for now)
 

@@ -113,9 +113,15 @@ services/routing/
   - `e2e/map.spec.ts`: canvas visible, an OpenFreeMap `.pbf` tile loads (proves the worker runs), attribution
     shown, no console errors. Confirmed it fails without the `workerUrl` fix, and that with `CI=1` it starts and
     stops its own Vite server
-- [ ] GitHub Actions: lint, typecheck, unit tests, e2e (fixture mode)
-  - `.github/workflows/ci.yml` written (format, lint, typecheck, unit, Playwright; report uploaded on failure).
-    Not verified: needs a run on GitHub (local actionlint install was blocked)
+- [x] UI test coverage (added on request)
+  - Component tests for ProfilePanel, SurfaceBar, ElevationChart, RouteSummary (GPX download), Sidebar (guidance,
+    errors, undo/redo/clear) and the undo shortcuts. `pnpm --filter web test:coverage`: unit line coverage 65% → 91%
+  - Playwright `e2e/map-interactions.spec.ts` (stub engine draws straight routes through the clicked points): line
+    hover ↔ chart, line-drag insert + undo, click on line, marker drag on the line, marker click removal. It found a
+    real bug (clicking the last marker removed and re-added it), now fixed
+- [x] GitHub Actions: lint, typecheck, unit tests, e2e (fixture mode)
+  - `.github/workflows/ci.yml` (format, lint, typecheck, unit, Playwright; report uploaded on failure). First run
+    green on `5807344` (run 40846428656, ~1 min 40 s, all steps passed)
 - [x] ADRs 0001–0004 in `docs/adr/`
   - Plus 0005: TypeScript 7 for compiling, with TS 6 for tooling
 
