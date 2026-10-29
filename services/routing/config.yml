@@ -1,0 +1,99 @@
+# GraphHopper 11.1 config. Paths are relative to services/routing (scripts/start.sh runs from there).
+# Reference: config-example.yml and docs/core/custom-models.md of the 11.1 tag.
+
+graphhopper:
+  datareader.file: data/austria-latest.osm.pbf
+  graph.location: data/graph-cache
+
+  # Profiles map 1:1 to the app's profiles. Models live in ./models (named *-model.json: GraphHopper reserves its
+  # built-in names such as mtb.json and car.json) and are versioned with the repo; they start as
+  # GraphHopper 11.1's built-ins (road = racingbike, gravel = bike, mtb = mtb, car = car) with bike_elevation.json merged in.
+  # All profiles use LM (hybrid mode) so a per-request custom_model can be sent. LM constraint: a request's
+  # custom model may only *lower* weights (every multiply_by must be within [0, 1], distance_influence may only
+  # go up), so these base models must be the most permissive variant of each profile. See docs/adr.
+  custom_models.directory: models
+  profiles:
+    - name: road
+      custom_model_files: [road-model.json]
+    - name: gravel
+      custom_model_files: [gravel-model.json]
+    - name: mtb
+      custom_model_files: [mtb-model.json]
+    - name: car
+      custom_model_files: [car-model.json]
+  profiles_ch: []
+  profiles_lm:
+    - profile: road
+    - profile: gravel
+    - profile: mtb
+    - profile: car
+  prepare.lm.threads: 4
+
+  # Edge attributes stored in the graph. Usable in custom models and as path `details` in route responses.
+  # - required by the profile models: *_access, *_average_speed, *_priority, roundabout, bike_road_access,
+  #   foot_road_access, road_access, mtb_rating, hike_rating, country, road_class, average_slope
+  # - surface/quality: surface, smoothness, track_type (surface breakdown, gravel slider)
+  # - max_slope: steepness checks; osm_way_id: lets flags (M2) record OSM way IDs straight from a route
+  # - bike_network, road_environment, max_speed: for profile settings (prefer cycle routes, avoid fast roads)
+  graph.encoded_values: >-
+    racingbike_access, racingbike_average_speed, racingbike_priority,
+    bike_access, bike_average_speed, bike_priority,
+    mtb_access, mtb_average_speed, mtb_priority,
+    car_access, car_average_speed,
+    roundabout, road_access, bike_road_access, foot_road_access,
+    road_class, road_environment, max_speed, bike_network,
+    surface, smoothness, track_type, mtb_rating, hike_rating, country,
+    average_slope, max_slope, osm_way_id
+
+  # Elevation from SRTM. Interpolation + smoothing + long-edge sampling keep ascent figures realistic.
+  graph.elevation.provider: srtm
+  graph.elevation.cache_dir: data/srtm
+  graph.elevation.interpolate: bilinear
+  graph.elevation.edge_smoothing: moving_average
+  graph.elevation.edge_smoothing.moving_average.window_size: 150
+  graph.elevation.long_edge_sampling_distance: 60
+  graph.elevation.way_point_max_distance: 10
+
+  prepare.min_network_size: 200
+  prepare.subnetworks.threads: 4
+  routing.snap_preventions_default: tunnel, bridge, ferry
+  routing.non_ch.max_waypoint_distance: 1000000
+  graph.dataaccess.default_type: RAM_STORE
+  # Required key since GH 11. Empty: bike profiles need paths/footways and car needs motorways, so import everything.
+  import.osm.ignored_highways: ''
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      bind_host: localhost
+      max_request_header_size: 50k
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: localhost
+
+logging:
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'
+    - type: file
+      time_zone: UTC
+      current_log_filename: data/logs/graphhopper.log
+      log_format: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'
+      archive: true
+      archived_log_filename_pattern: data/logs/graphhopper-%d.log.gz
+      archived_file_count: 7
+      never_block: true
+  loggers:
+    'com.graphhopper.osm_warnings':
+      level: DEBUG
+      additive: false
+      appenders:
+        - type: file
+          currentLogFilename: data/logs/osm_warnings.log
+          archive: false
+          logFormat: '[%level] %msg%n'

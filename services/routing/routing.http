@@ -1,0 +1,109 @@
+# Sample GraphHopper requests (VS Code REST Client). Start the engine with `pnpm routing:start`.
+# Coordinates are [lon, lat].
+
+@gh = http://localhost:8989
+
+### Engine info: profiles, encoded values, data date
+GET {{gh}}/info
+
+### Gravel: Wien Hütteldorf → Tulln through the Wienerwald, with elevation and the details the app uses
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "gravel",
+  "points": [[16.2615, 48.1975], [16.0547, 48.3302]],
+  "points_encoded": false,
+  "elevation": true,
+  "instructions": false,
+  "details": ["surface", "track_type", "smoothness", "road_class", "average_slope", "osm_way_id"]
+}
+
+### Road: same trip; expect it to stay on paved roads
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "road",
+  "points": [[16.2615, 48.1975], [16.0547, 48.3302]],
+  "points_encoded": false,
+  "elevation": true,
+  "instructions": false,
+  "details": ["surface", "road_class"]
+}
+
+### Gravel with a per-request custom model: penalise paved surfaces (high off-road preference).
+# LM rule: every multiply_by must be within [0, 1].
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "gravel",
+  "points": [[16.2615, 48.1975], [16.0547, 48.3302]],
+  "points_encoded": false,
+  "elevation": true,
+  "instructions": false,
+  "details": ["surface"],
+  "custom_model": {
+    "priority": [
+      { "if": "surface == ASPHALT || surface == CONCRETE || surface == PAVED", "multiply_by": "0.5" }
+    ]
+  }
+}
+
+### Avoid area (M2 flags): priority 0 inside a polygon
+# The box sits on the default gravel route (~26.1 km); avoiding it gives a ~26.9 km detour.
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "gravel",
+  "points": [[16.2615, 48.1975], [16.0547, 48.3302]],
+  "points_encoded": false,
+  "instructions": false,
+  "custom_model": {
+    "priority": [{ "if": "in_flag1", "multiply_by": "0" }],
+    "areas": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "id": "flag1",
+          "properties": {},
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [[16.1312, 48.2601], [16.1392, 48.2601], [16.1392, 48.2681], [16.1312, 48.2681], [16.1312, 48.2601]]
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+### Round trip (M3 candidate generation): ~40 km gravel loop from Hütteldorf
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "gravel",
+  "points": [[16.2615, 48.1975]],
+  "algorithm": "round_trip",
+  "round_trip.distance": 40000,
+  "round_trip.seed": 1,
+  "points_encoded": false,
+  "elevation": true,
+  "instructions": false
+}
+
+### Car: home → track start (M4)
+POST {{gh}}/route
+Content-Type: application/json
+
+{
+  "profile": "car",
+  "points": [[16.3725, 48.2083], [16.0547, 48.3302]],
+  "points_encoded": false,
+  "instructions": false
+}
