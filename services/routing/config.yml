@@ -2,7 +2,8 @@
 # Reference: config-example.yml and docs/core/custom-models.md of the 11.1 tag.
 
 graphhopper:
-  datareader.file: data/austria-latest.osm.pbf
+  # Austria + Hungary, merged by scripts/setup.sh (GraphHopper reads one file).
+  datareader.file: data/region.osm.pbf
   graph.location: data/graph-cache
 
   # Profiles map 1:1 to the app's profiles. Models live in ./models (named *-model.json: GraphHopper reserves its

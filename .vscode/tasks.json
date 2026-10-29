@@ -9,7 +9,7 @@
     },
     {
       "label": "routing",
-      "detail": "GraphHopper on :8989 (first start imports the graph, ~3.5 min)",
+      "detail": "GraphHopper on :8989 (first start imports the graph, ~5 min)",
       "type": "shell",
       "command": "pnpm routing:start",
       "isBackground": true,

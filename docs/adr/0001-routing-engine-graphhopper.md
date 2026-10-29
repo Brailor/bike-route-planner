@@ -24,7 +24,7 @@ adapter (ADR 0003) keeps that switch contained.
 
 ## Consequences
 
-- A JVM process with ~5.5 GB heap during import for Austria; the first start takes ~3.5 min.
+- A JVM process with ~6.3 GB heap used during import (Austria + Hungary); the first start takes ~5 min.
 - Custom models are versioned JSON files in `services/routing/models/`. GraphHopper reserves its built-in model names
   (`mtb.json`, `car.json`, …), so ours are named `*-model.json`.
 - Early check: the default `gravel` model (based on GraphHopper's `bike`) is ~93% asphalt on a Wienerwald test route.

@@ -78,8 +78,11 @@ services/routing/
   - GH 11.1 built-ins (road = racingbike, gravel = bike, mtb, car) with `bike_elevation.json` merged in
   - Default gravel is ~93% asphalt on the Hütteldorf → Tulln sample, so tuning gravel is M1 work
 - [x] First import; note the import time and memory use
-  - 776 MB pbf → server ready in **3 min 24 s** (~75 s import + SRTM, ~2 min LM for 4 profiles). Heap peak ~5.5 GB
-    of the 8 GB `-Xmx`. `data/graph-cache` is 1.5 GB, `data/srtm` 38 MB. Later starts load the cache
+  - 776 MB pbf → server ready in **3 min 24 s** (~75 s import + SRTM, ~2 min LM for 4 profiles). Heap peak ~6.3 GB
+    used (8 GB `-Xmx`; earlier note of 5.5 GB read the wrong log figure). `data/graph-cache` is 1.5 GB, `data/srtm`
+    38 MB. Later starts load the cache
+  - Austria + Hungary (1.1 GB merged pbf): ready in **4 min 46 s**, heap peak ~6.3 GB used, graph cache 2.1 GB.
+    Default `GH_HEAP` raised to 10g
 - [x] `routing.http`: sample requests (plain route, with a custom model, with `details`, with elevation)
   - All 6 requests return 200 in 17–289 ms. Confirmed live: the per-request custom model changes the route
     (gravel 93% → 39% asphalt when paved is penalised), the avoid-area forces a detour (26.1 → 26.9 km, 0 points
@@ -217,7 +220,10 @@ services/routing/
 - [ ] Car routing via the GraphHopper car profile; park-at-end + train-to-start combos
   - Car currently snaps onto Austrian forest tracks: enable `country_rules` and penalise `road_access` (gravel spike)
 - [ ] Ranked options UI, both directions
-- [ ] Hungary: add `hungary-latest.osm.pbf` (a merged extract or a second instance)
+- [x] Hungary: add `hungary-latest.osm.pbf` (a merged extract or a second instance)
+  - Done early (on request): `setup.sh` merges the Austria and Hungary extracts with osmium into one graph.
+    Confirmed live: routes inside Hungary (Budapest–Szentendre, Győr–Pannonhalma, Tihany, Budapest–Esztergom) and
+    across the border (Wien–Sopron, Neusiedl–Fertőrákos, Wien–Budapest by car); a Győr route planned in the app
 
 ### M5: Station-to-station discovery
 

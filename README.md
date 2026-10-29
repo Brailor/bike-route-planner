@@ -51,7 +51,7 @@ Later:
 | Frontend | React, TypeScript, Vite, `maplibre-gl`, `react-map-gl` |
 | Map tiles | OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`) |
 | Routing | GraphHopper, self-hosted, with per-request **custom models** |
-| OSM data | Geofabrik extracts: `austria-latest.osm.pbf` first, `hungary-latest.osm.pbf` next |
+| OSM data | Geofabrik extracts `austria-latest.osm.pbf` + `hungary-latest.osm.pbf`, merged with osmium into one graph (cross-border routes work) |
 | Elevation | GraphHopper elevation (SRTM) |
 | Public transport | MOTIS / Transitous API. Fallback: `hafas-client` ÖBB profile, BKK GTFS for Budapest |
 | Car routing | Same GraphHopper instance, car profile |
@@ -82,21 +82,22 @@ route-planner/
 
 ## Getting started (local dev)
 
-Prerequisites: Node 24+, pnpm, Java 21+ (tested on 26). About 8 GB free RAM for the routing engine.
+Prerequisites: Node 24+, pnpm, Java 21+ (tested on 26), osmium-tool (`brew install osmium-tool`). About 10 GB free RAM for the routing engine.
 
 ```bash
 pnpm install
 
 # 1. Routing engine (all commands run from the repo root)
-pnpm routing:setup   # downloads the pinned GraphHopper jar + austria-latest.osm.pbf (MD5-checked) into services/routing
-pnpm routing:start   # serves on :8989; heap via GH_HEAP (default 8g)
-                     # first start imports the graph: ~3.5 min, ~5.5 GB heap; later starts load data/graph-cache
+pnpm routing:setup   # downloads the pinned GraphHopper jar + the Austria and Hungary extracts (MD5-checked),
+                     # merges them into services/routing/data/region.osm.pbf
+pnpm routing:start   # serves on :8989; heap via GH_HEAP (default 10g)
+                     # first start imports the graph: ~5 min, ~6.3 GB heap used; later starts load data/graph-cache (2.1 GB)
 
 # 2. Frontend
 pnpm dev
 ```
 
-`pnpm routing:setup --update` refreshes the OSM extract (and drops the graph cache so the next start re-imports).
+`pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
 Sample requests are in `services/routing/routing.http`.
 
 `config.yml` requirements:

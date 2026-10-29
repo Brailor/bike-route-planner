@@ -5,7 +5,7 @@
 
 ## Context
 
-End-to-end tests need routes on screen, but GraphHopper needs a ~776 MB OSM extract, ~5.5 GB of heap and ~3.5 min to
+End-to-end tests need routes on screen, but GraphHopper needs a ~1.1 GB OSM extract, ~6.3 GB of heap and ~5 min to
 import. That's too heavy and slow for every CI run.
 
 ## Decision
