@@ -1,0 +1,45 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev",
+      "dependsOn": ["routing", "web"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "routing",
+      "detail": "GraphHopper on :8989 (first start imports the graph, ~3.5 min)",
+      "type": "shell",
+      "command": "pnpm routing:start",
+      "isBackground": true,
+      "presentation": { "group": "dev", "reveal": "always" },
+      "problemMatcher": {
+        "owner": "graphhopper",
+        "pattern": { "regexp": "^(ERROR)\\s+(.*)$", "severity": 1, "message": 2 },
+        "background": {
+          "activelyBegins": true,
+          "beginsPattern": "Starting GraphHopperApplication",
+          "endsPattern": "Started Server@"
+        }
+      }
+    },
+    {
+      "label": "web",
+      "detail": "Vite dev server on :5173 (proxies /gh to GraphHopper)",
+      "type": "shell",
+      "command": "pnpm dev",
+      "isBackground": true,
+      "presentation": { "group": "dev", "reveal": "always" },
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^(error)\\s+(.*)$", "severity": 1, "message": 2 },
+        "background": {
+          "activelyBegins": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "ready in"
+        }
+      }
+    }
+  ]
+}

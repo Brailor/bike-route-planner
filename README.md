@@ -33,7 +33,7 @@ Plus a travel feature:
 └─────────────┬──────────────┘
               │ HTTP (Vite dev proxy: /gh → :8989)
 ┌─────────────▼──────────────┐
-│  services/routing          │  GraphHopper (Java 21, jar)
+│  services/routing          │  GraphHopper 11.1 (Java 21+, jar)
 │  OSM .pbf (Geofabrik)      │  bike profile on LM (not CH) so
 │  custom models per profile │  custom models can be sent per request
 └────────────────────────────┘
@@ -67,8 +67,10 @@ route-planner/
   apps/web/                 # frontend
   services/routing/
     config.yml              # GraphHopper config
-    models/                 # custom models: road.json, gravel.json, mtb.json, car.json
-    data/                   # *.osm.pbf and graph cache (gitignored)
+    models/                 # custom models: road-model.json, gravel-model.json, mtb-model.json, car-model.json
+                            # (*-model.json because GraphHopper reserves its built-in names like mtb.json)
+    scripts/                # setup.sh (download jar + .pbf), start.sh (run the server)
+    data/                   # *.osm.pbf, graph cache, SRTM tiles, logs (gitignored)
     routing.http            # sample requests (VS Code REST Client)
   docs/                     # requirement notes, decisions (ADRs)
   .vscode/tasks.json        # "dev" compound task: GraphHopper + Vite
@@ -80,27 +82,30 @@ route-planner/
 
 ## Getting started (local dev)
 
-Prerequisites: Node LTS, pnpm, Java 21.
+Prerequisites: Node 24+, pnpm, Java 21+ (tested on 26). About 8 GB free RAM for the routing engine.
 
 ```bash
-# 1. Routing engine
-cd services/routing
-# download the latest graphhopper-web-*.jar from GraphHopper's GitHub releases
-# download austria-latest.osm.pbf from Geofabrik into ./data
-java -Xmx6g -jar graphhopper-web-*.jar server config.yml   # first run imports the graph (a few minutes)
+pnpm install
+
+# 1. Routing engine (all commands run from the repo root)
+pnpm routing:setup   # downloads the pinned GraphHopper jar + austria-latest.osm.pbf (MD5-checked) into services/routing
+pnpm routing:start   # serves on :8989; heap via GH_HEAP (default 8g)
+                     # first start imports the graph: ~3.5 min, ~5.5 GB heap; later starts load data/graph-cache
 
 # 2. Frontend
-cd apps/web
-pnpm install
 pnpm dev
 ```
 
+`pnpm routing:setup --update` refreshes the OSM extract (and drops the graph cache so the next start re-imports).
+Sample requests are in `services/routing/routing.http`.
+
 `config.yml` requirements:
 - `datareader.file` points at the `.pbf` in `data/`
-- encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope`
+- encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope` (plus `osm_way_id` for flags)
 - elevation enabled (SRTM)
-- the bike profile uses **LM, not CH**, so per-request `custom_model` works
+- all profiles use **LM, not CH**, so per-request `custom_model` works. LM rule: a request's custom model may only lower weights, so every `multiply_by` must be within [0, 1] and `distance_influence` can only go up. Profile settings therefore penalise rather than boost.
 - a car profile exists (for milestone 4)
+- `import.osm.ignored_highways` is set explicitly (required since GraphHopper 11); it is empty because bike and car profiles together need every highway type
 
 The Vite dev server proxies `/gh/*` to `http://localhost:8989` so the browser never deals with CORS.
 
@@ -234,5 +239,5 @@ interface UserSettings {
 
 - How well does Transitous cover Hungarian rail (MÁV)? Verify early. Fallbacks: other GTFS sources or an unofficial MÁV endpoint.
 - How reliable is bike-carriage data (`bikes_allowed` in GTFS) for ÖBB and MÁV? It's probably sparse, so plan for user corrections.
-- Exact GraphHopper version and encoded-value names. Check against the release's `config-example.yml`.
+- ~~Exact GraphHopper version and encoded-value names.~~ Resolved: GraphHopper 11.1; see `services/routing/config.yml`.
 - Workout file format to support first (ZWO vs Intervals.icu).

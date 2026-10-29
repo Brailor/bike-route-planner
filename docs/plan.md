@@ -49,8 +49,9 @@ services/routing/
 **Tooling**
 
 - [x] Install pnpm (`npm i -g pnpm`; corepack isn't bundled with Node 26)
-- [ ] Confirm GraphHopper runs on the installed Java 26; otherwise install Temurin 21
-  - Pinned GraphHopper **11.1**. The jar (built with JDK 17) starts on Java 26; still needs a successful import
+- [x] Confirm GraphHopper runs on the installed Java 26; otherwise install Temurin 21
+  - GraphHopper **11.1** imports and serves on Java 26. It prints harmless warnings (final-field mutation,
+    `sun.misc.Unsafe`)
 - [x] Root `package.json`, `pnpm-workspace.yaml`, `.nvmrc`, `tsconfig.base.json` (strict)
   - **TypeScript 7.0.2** as `tsc`, with TS 6 alongside it for tooling. This is the setup from the TS 7 announcement:
     `typescript` → `npm:@typescript/typescript6` (the 6.0 JS API, used by typescript-eslint) and
@@ -65,24 +66,46 @@ services/routing/
 
 **Routing service**
 
-- [ ] Pick and pin the GraphHopper release; read its `config-example.yml` for current encoded-value names
-- [ ] `scripts/setup.sh`: download the jar and `austria-latest.osm.pbf` (skip if already present)
-- [ ] `config.yml`: pbf path, encoded values from the README, SRTM elevation, LM for all profiles, `road`/`gravel`/`mtb`/`car` profiles
-- [ ] `models/road.json`, `gravel.json`, `mtb.json`, `car.json`: first-pass base models
-- [ ] First import; note the import time and memory use in the README
-- [ ] `routing.http`: sample requests (plain route, with a custom model, with `details`, with elevation)
+- [x] Pick and pin the GraphHopper release; read its `config-example.yml` for current encoded-value names
+  - 11.1. Two config gotchas: built-in model names (`mtb.json`, `car.json`) can't be reused, and
+    `import.osm.ignored_highways` must be set explicitly (we use `''`)
+- [x] `scripts/setup.sh`: download the jar and `austria-latest.osm.pbf` (skip if already present)
+  - Austria download plus MD5 check confirmed (~8 min). The jar branch wasn't exercised: the jar was already
+    present, downloaded manually from the same URL. `pnpm routing:setup` / `pnpm routing:start` from the root
+- [x] `config.yml`: pbf path, encoded values from the README, SRTM elevation, LM for all profiles, `road`/`gravel`/`mtb`/`car` profiles
+  - Also `osm_way_id` (gives M2 its way IDs as a path detail), `bike_network`, `road_environment`, `max_speed`
+- [x] `models/*-model.json` (road, gravel, mtb, car): first-pass base models
+  - GH 11.1 built-ins (road = racingbike, gravel = bike, mtb, car) with `bike_elevation.json` merged in
+  - Default gravel is ~93% asphalt on the Hütteldorf → Tulln sample, so tuning gravel is M1 work
+- [x] First import; note the import time and memory use
+  - 776 MB pbf → server ready in **3 min 24 s** (~75 s import + SRTM, ~2 min LM for 4 profiles). Heap peak ~5.5 GB
+    of the 8 GB `-Xmx`. `data/graph-cache` is 1.5 GB, `data/srtm` 38 MB. Later starts load the cache
+- [x] `routing.http`: sample requests (plain route, with a custom model, with `details`, with elevation)
+  - All 6 requests return 200 in 17–289 ms. Confirmed live: the per-request custom model changes the route
+    (gravel 93% → 39% asphalt when paved is penalised), the avoid-area forces a detour (26.1 → 26.9 km, 0 points
+    inside the box), and the LM constraint rejects `multiply_by: 1.5` with HTTP 400
 
 **Web app**
 
-- [ ] Scaffold `apps/web` (Vite + React + TS strict)
-- [ ] `maplibre-gl` + `react-map-gl` with the OpenFreeMap Liberty style, with OSM attribution visible
-- [ ] Vite proxy `/gh` → `http://localhost:8989`
+- [x] Scaffold `apps/web` (Vite + React + TS strict)
+  - Vite 8.3.4, React 19.3.1. `typecheck` (TS 7 `tsc`), `lint` (incl. react-hooks and react-refresh rules,
+    confirmed firing), `build` and root `pnpm dev` all work
+- [x] `maplibre-gl` + `react-map-gl` with the OpenFreeMap Liberty style, with OSM attribution visible
+  - maplibre-gl 6.14.0, react-map-gl 8.1.3. **Gotcha:** maplibre-gl 6 loads its worker relative to its own
+    module, which Vite's bundling breaks (blank map, "Worker failed to load"). Fixed with the `workerUrl` prop +
+    `maplibre-gl-worker.mjs?url`
+  - Confirmed with headless-Chromium screenshots in dev and prod: tiles render, no console errors, attribution
+    "OpenFreeMap © OpenMapTiles Data from OpenStreetMap" shown expanded
+- [x] Vite proxy `/gh` → `http://localhost:8989`
+  - `localhost:5173/gh/info` returns GraphHopper's info (profiles road, gravel, mtb, car)
 - [ ] `.vscode/tasks.json` compound "dev" task (GraphHopper + Vite)
+  - Written. Its ready patterns match the real GraphHopper and Vite logs; still needs one run inside VS Code
 
 **Tests & docs**
 
 - [ ] Vitest + React Testing Library, plus one smoke test
 - [ ] Playwright, plus one smoke test (the map renders)
+  - `@playwright/test` 1.64.1 + Chromium installed (used for the map screenshots); config and test not written yet
 - [ ] GitHub Actions: lint, typecheck, unit tests, e2e (fixture mode)
 - [ ] ADRs 0001–0004 in `docs/adr/`
 
