@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { fixtureRoute } from '../test/route';
 import { usePlanner } from './store';
 
 const initial = usePlanner.getState();
@@ -78,5 +79,43 @@ describe('waypoint undo/redo', () => {
   it('caps the history', () => {
     for (let i = 0; i < 150; i++) state().addWaypoint([16 + i / 1000, 48]);
     expect(state().past).toHaveLength(100);
+  });
+});
+
+describe('flag selection', () => {
+  afterEach(() => usePlanner.setState(initial, true));
+
+  it('needs a route', () => {
+    state().startFlagSelection();
+    expect(state().flagSelection).toBeUndefined();
+  });
+
+  it('starts with two handles on the route and moves each one', () => {
+    state().setRoute(fixtureRoute);
+    state().startFlagSelection();
+    const { a, b } = state().flagSelection!;
+    const last = fixtureRoute.geometry.coordinates.length - 1;
+    expect(0 < a && a < b && b < last).toBe(true);
+
+    state().moveFlagHandle('b', 3);
+    expect(state().flagSelection).toEqual({ a, b: 3 });
+    state().moveFlagHandle('a', 1);
+    expect(state().flagSelection).toEqual({ a: 1, b: 3 });
+  });
+
+  it('ignores handle moves when not selecting', () => {
+    state().moveFlagHandle('a', 1);
+    expect(state().flagSelection).toBeUndefined();
+  });
+
+  it('ends on cancel, and when the route changes', () => {
+    state().setRoute(fixtureRoute);
+    state().startFlagSelection();
+    state().cancelFlagSelection();
+    expect(state().flagSelection).toBeUndefined();
+
+    state().startFlagSelection();
+    state().setRoute({ ...fixtureRoute });
+    expect(state().flagSelection).toBeUndefined();
   });
 });

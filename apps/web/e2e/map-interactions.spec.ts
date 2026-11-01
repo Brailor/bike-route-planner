@@ -101,3 +101,68 @@ test('clicking the only waypoint clears the route', async ({ page }) => {
   await expect(waypoints(page)).toHaveCount(0);
   await expect(page.getByText('Click the map to set a start point.')).toBeVisible();
 });
+
+const handles = (page: Page) => page.getByTestId('flag-handle');
+
+async function centre(locator: ReturnType<Page['locator']>) {
+  const box = (await locator.boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/** Pixel distance from a point to the straight START → END route line. */
+function offLine({ x, y }: { x: number; y: number }) {
+  const dx = END.x - START.x;
+  const dy = END.y - START.y;
+  return Math.abs(dy * (x - START.x) - dx * (y - START.y)) / Math.hypot(dx, dy);
+}
+
+test('flag handles slide along the route and measure the stretch between them', async ({
+  page,
+}) => {
+  const requests = await planStraightRoute(page);
+  const requestCount = requests.length;
+  await page.getByRole('button', { name: 'Flag a section' }).click();
+  await expect(handles(page)).toHaveCount(2);
+  const before = await page.getByTestId('flag-length').innerText();
+
+  // Drop the second handle well off the line, near 85% of the way along: it lands back on the line there.
+  // The last small nudge keeps the same nearest route point: the handle must still snap back after it.
+  const target = { x: START.x + 0.85 * (END.x - START.x), y: START.y + 0.85 * (END.y - START.y) };
+  const from = await centre(handles(page).nth(1));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x + 40, target.y - 90, { steps: 12 });
+  await page.mouse.move(target.x + 42, target.y - 90);
+  await page.mouse.up();
+
+  const dropped = await centre(handles(page).nth(1));
+  expect(offLine(dropped)).toBeLessThan(3);
+  expect(Math.hypot(dropped.x - target.x, dropped.y - target.y)).toBeLessThan(25);
+  await expect(page.getByTestId('flag-length')).not.toHaveText(before);
+
+  // Selecting doesn't touch the waypoints or the route.
+  expect(await labels(page)).toEqual(['S', 'E']);
+  expect(requests).toHaveLength(requestCount);
+});
+
+test('while flagging, the map does not edit waypoints; cancelling ends it', async ({ page }) => {
+  const requests = await planStraightRoute(page);
+  const requestCount = requests.length;
+  await page.getByRole('button', { name: 'Flag a section' }).click();
+  await expect(handles(page)).toHaveCount(2);
+
+  await page.mouse.click(1100, 250); // empty map
+  await drag(page, { x: START.x + 50, y: START.y + 20 }, { x: START.x + 50, y: START.y - 130 }); // the line
+  await waypoints(page).filter({ hasText: 'E' }).click(); // a marker
+  await page.waitForTimeout(400);
+  // Any waypoint edit re-routes, and a new route ends the selection; checking only the waypoints at the end could
+  // miss an edit that a later one undid.
+  expect(requests).toHaveLength(requestCount);
+  await expect(handles(page)).toHaveCount(2);
+  expect(await labels(page)).toEqual(['S', 'E']);
+
+  await page.keyboard.press('Escape');
+  await expect(handles(page)).toHaveCount(0);
+  await page.mouse.click(1100, 250);
+  await expect(waypoints(page)).toHaveCount(3);
+});

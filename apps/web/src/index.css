@@ -6,6 +6,7 @@
   --accent: #c27c0e;
   --accent-fg: #ffffff;
   --error: #b42318;
+  --flag: #d6246e;
   font-family:
     system-ui,
     -apple-system,
@@ -286,6 +287,20 @@ body,
 
 .waypoint--ghost {
   opacity: 0.7;
+}
+
+.flag-panel p {
+  margin: 0;
+}
+
+.flag-handle {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--flag);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  cursor: grab;
 }
 
 .hover-dot {

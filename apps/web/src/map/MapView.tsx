@@ -12,10 +12,11 @@ import {
   type MapLayerMouseEvent,
   type MarkerDragEvent,
 } from 'react-map-gl/maplibre';
+import { selectionGeometry, type FlagHandle } from '../flags/selection';
 import { distanceM } from '../geo';
 import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
-import { SURFACE_COLORS } from '../ui/surfaceColors';
+import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
 import { INITIAL_VIEW } from './view';
 
@@ -33,6 +34,8 @@ const MIN_DRAG_M = 5;
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const PASSIVE = { pointerEvents: 'none' } as const;
+
+const FLAG_HANDLES: readonly FlagHandle[] = ['a', 'b'];
 
 /** DOM click events already handled by a waypoint marker; the map ignores them. */
 const markerClicks = new WeakSet<Event>();
@@ -64,12 +67,37 @@ export function MapView() {
   const waypoints = usePlanner((s) => s.waypoints);
   const route = usePlanner((s) => s.route);
   const hoverIndex = usePlanner((s) => s.hoverIndex);
-  const { addWaypoint, insertWaypoint, moveWaypoint, removeWaypoint, setHoverIndex } =
-    usePlanner.getState();
+  const flagSelection = usePlanner((s) => s.flagSelection);
+  const {
+    addWaypoint,
+    insertWaypoint,
+    moveWaypoint,
+    removeWaypoint,
+    setHoverIndex,
+    moveFlagHandle,
+  } = usePlanner.getState();
 
   const runs = useMemo(() => (route ? surfaceRuns(route) : EMPTY), [route]);
   const coordinates = route?.geometry.coordinates;
   const hovered = hoverIndex === undefined ? undefined : coordinates?.[hoverIndex];
+  // While a stretch is being picked, the route and its waypoints are frozen: the selection indexes into this route.
+  const flagging = flagSelection !== undefined;
+  const selected = useMemo<FeatureCollection>(
+    () =>
+      coordinates && flagSelection
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: {},
+                geometry: selectionGeometry(coordinates, flagSelection),
+              },
+            ],
+          }
+        : EMPTY,
+    [coordinates, flagSelection],
+  );
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
@@ -88,12 +116,12 @@ export function MapView() {
     });
 
   function handleClick(e: MapLayerMouseEvent) {
-    if (onRouteFeature(e) || onMarker(e)) return; // clicks on the line or a marker don't add waypoints
+    if (flagging || onRouteFeature(e) || onMarker(e)) return; // clicks on the line or a marker don't add waypoints
     addWaypoint(toLonLat(e));
   }
 
   function handleMouseDown(e: MapLayerMouseEvent) {
-    if (!coordinates || !onRouteFeature(e) || onMarker(e)) return;
+    if (flagging || !coordinates || !onRouteFeature(e) || onMarker(e)) return;
     e.preventDefault(); // stops the map from panning while a waypoint is dragged out of the line
     const point = toLonLat(e);
     setLineDrag({ from: point, to: point, routeIndex: nearestIndex(coordinates, point) });
@@ -107,6 +135,14 @@ export function MapView() {
     const over = Boolean(coordinates) && onRouteFeature(e);
     setOverRoute(over);
     setHoverIndex(over && coordinates ? nearestIndex(coordinates, toLonLat(e)) : undefined);
+  }
+
+  /**
+   * Moves a flag handle to the route point nearest the pointer. Every move stores a new selection, so the map
+   * re-renders and the handle's marker snaps back from the pointer onto that point, even when the index is unchanged.
+   */
+  function dragFlagHandle(handle: FlagHandle, e: MarkerDragEvent) {
+    if (coordinates) moveFlagHandle(handle, nearestIndex(coordinates, toLonLat(e)));
   }
 
   function handleMouseUp() {
@@ -128,7 +164,7 @@ export function MapView() {
       // Expanded (not compact) so the OpenStreetMap attribution required by ODbL is always visible.
       attributionControl={{ compact: false }}
       interactiveLayerIds={coordinates ? [ROUTE_HIT_LAYER] : []}
-      cursor={lineDrag ? 'grabbing' : overRoute ? 'grab' : 'crosshair'}
+      cursor={lineDrag ? 'grabbing' : flagging ? 'default' : overRoute ? 'grab' : 'crosshair'}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -167,6 +203,17 @@ export function MapView() {
         />
       </Source>
 
+      <Source id="flag-selection" type="geojson" data={selected}>
+        {/* A halo under the route line, so the selected stretch keeps its surface colours. */}
+        <Layer
+          id="flag-selection"
+          type="line"
+          beforeId="route-line"
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': FLAG_COLOR, 'line-width': 13 }}
+        />
+      </Source>
+
       {/* Display-only markers: their wrappers must not catch the pointer, or they block the waypoints beneath. */}
       {hovered && !lineDrag && (
         <Marker longitude={hovered[0] ?? 0} latitude={hovered[1] ?? 0} style={PASSIVE}>
@@ -180,6 +227,27 @@ export function MapView() {
         </Marker>
       )}
 
+      {flagSelection &&
+        FLAG_HANDLES.map((handle) => {
+          const [lon = 0, lat = 0] = coordinates?.[flagSelection[handle]] ?? [];
+          return (
+            <Marker
+              key={handle}
+              longitude={lon}
+              latitude={lat}
+              draggable
+              onDrag={(e: MarkerDragEvent) => dragFlagHandle(handle, e)}
+              onDragEnd={(e: MarkerDragEvent) => dragFlagHandle(handle, e)}
+            >
+              <div
+                className="flag-handle"
+                data-testid="flag-handle"
+                title="Drag along the route to adjust"
+              />
+            </Marker>
+          );
+        })}
+
       {waypoints.map(([lon, lat], i) => {
         const label = waypointLabel(i, waypoints.length);
         return (
@@ -187,11 +255,11 @@ export function MapView() {
             key={i}
             longitude={lon}
             latitude={lat}
-            draggable
+            draggable={!flagging}
             onDragEnd={(e: MarkerDragEvent) => moveWaypoint(i, toLonLat(e))}
             onClick={(e) => {
               markerClicks.add(e.originalEvent);
-              removeWaypoint(i);
+              if (!flagging) removeWaypoint(i);
             }}
           >
             <div

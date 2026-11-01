@@ -208,7 +208,13 @@ services/routing/
     `storage/flagStore.ts` (`FlagStore`: list oldest first / save-or-replace / remove). idb 8.0.4; tests on
     fake-indexeddb 6.2.5 (6.2.6 was under two weeks old), incl. survive close + reopen. Each test confirmed to fail
     against a matching break (unordered list, `add` instead of `put`, no-op remove). Not wired into the UI yet
-- [ ] Segment selection on the route (two handles on the line, or click a segment)
+- [x] Segment selection on the route (two handles on the line, or click a segment)
+  - Two handles (click-a-segment deferred, on request). "Flag a section" puts them at 40% / 60% of the distance;
+    dragging snaps each to the nearest route point; the stretch shows as a halo under the route line, with its
+    length in the panel. Cancel or Esc ends it, and so does any new route (indices point into the old geometry).
+    While selecting, map clicks, line drags and waypoint markers don't edit waypoints
+  - Pure helpers in `flags/selection.ts`. Unit + component tests, e2e in `map-interactions.spec.ts`; each guard and
+    the snap confirmed to fail its test when removed. Nothing to save yet: that's the flag form, next
 - [ ] Flag form (reason + note); flag layer on the map, toggleable, editable, deletable
 - [ ] Flag → buffered avoid-polygon (turf) → custom-model `areas` with priority 0
 - [ ] Partial reroute: only re-request the legs between the waypoints around the flag

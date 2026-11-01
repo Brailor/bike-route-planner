@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteResult, RoutingError } from '../routing/types';
 import type { LonLat, Profile, ProfileSettings } from '../types';
@@ -25,6 +26,8 @@ interface PlannerState {
   status: RouteStatus;
   /** Index into the route's coordinates under the pointer (map or elevation chart). */
   hoverIndex: number | undefined;
+  /** The stretch being picked for a flag; undefined when not flagging. Indices into `route`'s coordinates. */
+  flagSelection: FlagSelection | undefined;
 
   addWaypoint: (point: LonLat) => void;
   insertWaypoint: (index: number, point: LonLat) => void;
@@ -36,6 +39,10 @@ interface PlannerState {
   setProfile: (profile: Profile) => void;
   updateSettings: (patch: Partial<Omit<ProfileSettings, 'profile'>>) => void;
   setHoverIndex: (index: number | undefined) => void;
+  /** Puts two handles on the current route. No-op without a route. */
+  startFlagSelection: () => void;
+  moveFlagHandle: (handle: FlagHandle, index: number) => void;
+  cancelFlagSelection: () => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
@@ -59,6 +66,7 @@ export const usePlanner = create<PlannerState>()((set) => {
     route: undefined,
     status: { state: 'idle' },
     hoverIndex: undefined,
+    flagSelection: undefined,
 
     addWaypoint: (point) => edit((w) => [...w, point]),
     insertWaypoint: (index, point) => edit((w) => [...w.slice(0, index), point, ...w.slice(index)]),
@@ -90,9 +98,23 @@ export const usePlanner = create<PlannerState>()((set) => {
         },
       })),
     setHoverIndex: (hoverIndex) => set({ hoverIndex }),
+    startFlagSelection: () =>
+      set((s) => (s.route ? { flagSelection: initialSelection(s.route.geometry.coordinates) } : s)),
+    // Always a new object, even for the same index: MapView relies on the re-render to snap a dragged handle.
+    moveFlagHandle: (handle, index) =>
+      set((s) =>
+        s.flagSelection ? { flagSelection: { ...s.flagSelection, [handle]: index } } : s,
+      ),
+    cancelFlagSelection: () => set({ flagSelection: undefined }),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>
-      set({ route, hoverIndex: undefined, status: { state: route ? 'ready' : 'idle' } }),
+      // A new route invalidates the selection: its indices point into the old geometry.
+      set({
+        route,
+        hoverIndex: undefined,
+        flagSelection: undefined,
+        status: { state: route ? 'ready' : 'idle' },
+      }),
     setRouteError: (error) =>
       set({ status: { state: 'error', kind: error.kind, message: error.message } }),
   };
