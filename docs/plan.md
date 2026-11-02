@@ -201,6 +201,17 @@ services/routing/
   - Confirmed it fails usefully: engine down → "not reachable … pnpm routing:start"; an LM-violating factor → lists
     each rejected setting with GraphHopper's message. (`buildCustomModel` also clamps to [0, 1] as a safety net)
 
+### M1.5: Location and address search (added on request)
+
+- [x] Open the map on the user's location
+  - Browser geolocation after the map loads; jumps there (zoom 12) only if it's inside `SUPPORTED_BOUNDS`
+    (`region.ts`, one box around AT + HU, so it also takes in some neighbours' border areas) and the map hasn't
+    moved and has no waypoints yet. Otherwise stays on Vienna. A dot marks the user's position either way
+  - Unit tests (`locate`, `region`, MapView opening position) and e2e `location.spec.ts` (Graz → centred there;
+    Berlin and denied → Vienna). Each condition confirmed to fail a test when removed
+- [ ] `Geocoder` adapter + Photon implementation (public API for now), dev proxy `/geo`
+- [ ] Start and destination address fields with autocomplete
+
 ### M2: Flag unrideable sections
 
 - [x] IndexedDB storage layer (`idb`) for flags

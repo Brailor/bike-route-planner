@@ -1,6 +1,6 @@
 // Kept free of React/maplibre imports so e2e tests can use it to place clicks at known coordinates.
 
-/** Vienna; the first target region is Austria. */
+/** Vienna. Where the map opens unless the user's location is known and inside the supported region. */
 export const INITIAL_VIEW = { longitude: 16.37, latitude: 48.21, zoom: 9 };
 
 /** maplibre-gl vector tiles are 512 px, so the world is 512 · 2^zoom px wide. */

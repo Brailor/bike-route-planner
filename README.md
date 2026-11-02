@@ -41,6 +41,7 @@ Plus a travel feature:
 Later:
 - services/api      Node/TS API in front of the engines (profiles, flags, workout logic)
 - services/transit  MOTIS (self-hosted) or Transitous public API for public transport
+- services/geocoding  Photon (self-hosted), replacing the public API
 - Postgres + PostGIS  when sync/sharing is needed (IndexedDB until then)
 ```
 
@@ -53,6 +54,7 @@ Later:
 | Routing | GraphHopper, self-hosted, with per-request **custom models** |
 | OSM data | Geofabrik extracts `austria-latest.osm.pbf` + `hungary-latest.osm.pbf`, merged with osmium into one graph (cross-border routes work) |
 | Elevation | GraphHopper elevation (SRTM) |
+| Geocoding | Photon (OSM-based, built for search-as-you-type). The public `photon.komoot.io` API for now, self-hosted later. Not Nominatim: its public API forbids autocomplete |
 | Public transport | MOTIS / Transitous API. Fallback: `hafas-client` ÖBB profile, BKK GTFS for Budapest |
 | Car routing | Same GraphHopper instance, car profile |
 | Package manager | pnpm workspaces |
@@ -119,6 +121,8 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` so the browser ne
 ### M1 — Profiles + core routing
 
 - Map with click-to-add waypoints (start, end and intermediate), draggable.
+- The map opens on the user's location (browser geolocation) when it's inside the supported region, and on Vienna otherwise (location denied, unavailable or outside the region). The location stays in the browser.
+- Start and destination can also be entered as addresses, with autocomplete. What the user types, plus the map centre for ranking, goes to the geocoder (Photon).
 - Profile switcher: **road / gravel / MTB**. Each profile is a base custom model in `services/routing/models/`.
 - Profile settings adjust the custom model's weights, e.g. a gravel "off-road preference" slider (0–100) that scales the priority for unpaved surfaces and track grades.
 - Route display: line on the map, distance, elevation gain, estimated time, and a surface breakdown (% asphalt / gravel / ground / unknown).
@@ -238,7 +242,7 @@ interface UserSettings {
 - Native mobile apps
 - User accounts, sync, social features
 - Turn-by-turn navigation
-- Global coverage. The target region is **Austria and Hungary**.
+- Global coverage, for now. The target region is **Austria and Hungary**; the whole world is the long-term goal, so region limits live in one place (`apps/web/src/region.ts`).
 
 ## Open questions
 

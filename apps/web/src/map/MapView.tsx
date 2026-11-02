@@ -1,7 +1,7 @@
 import type { FeatureCollection } from 'geojson';
 import type { ExpressionSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Layer,
   Map,
@@ -9,15 +9,18 @@ import {
   NavigationControl,
   ScaleControl,
   Source,
+  type MapEvent,
   type MapLayerMouseEvent,
   type MarkerDragEvent,
 } from 'react-map-gl/maplibre';
 import { selectionGeometry, type FlagHandle } from '../flags/selection';
 import { distanceM } from '../geo';
+import { inSupportedRegion } from '../region';
 import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
+import { currentPosition } from './locate';
 import { INITIAL_VIEW } from './view';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
@@ -34,6 +37,9 @@ const MIN_DRAG_M = 5;
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const PASSIVE = { pointerEvents: 'none' } as const;
+
+/** Zoom when the map opens on the user's location: a few km across, enough to see the nearby roads. */
+const LOCATED_ZOOM = 12;
 
 const FLAG_HANDLES: readonly FlagHandle[] = ['a', 'b'];
 
@@ -101,6 +107,9 @@ export function MapView() {
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
+  const [userLocation, setUserLocation] = useState<LonLat>();
+  /** Set once the map moves (a pan, a zoom, a search result); after that, a late location fix must not move it. */
+  const moved = useRef(false);
 
   const onRouteFeature = (e: MapLayerMouseEvent) => Boolean(e.features?.length);
   // Markers live inside the map's canvas container, so pressing, clicking or dragging one also reaches the map,
@@ -114,6 +123,17 @@ export function MapView() {
       const p = e.target.project(w);
       return Math.hypot(p.x - e.point.x, p.y - e.point.y) <= MARKER_RADIUS_PX;
     });
+
+  /** Opens the map on the user's location when routing works there; otherwise it stays on INITIAL_VIEW. */
+  function handleLoad(e: MapEvent) {
+    void currentPosition().then((position) => {
+      if (!position) return;
+      setUserLocation(position);
+      const unused = !moved.current && usePlanner.getState().waypoints.length === 0;
+      if (unused && inSupportedRegion(position))
+        e.target.jumpTo({ center: position, zoom: LOCATED_ZOOM });
+    });
+  }
 
   function handleClick(e: MapLayerMouseEvent) {
     if (flagging || onRouteFeature(e) || onMarker(e)) return; // clicks on the line or a marker don't add waypoints
@@ -165,6 +185,8 @@ export function MapView() {
       attributionControl={{ compact: false }}
       interactiveLayerIds={coordinates ? [ROUTE_HIT_LAYER] : []}
       cursor={lineDrag ? 'grabbing' : flagging ? 'default' : overRoute ? 'grab' : 'crosshair'}
+      onLoad={handleLoad}
+      onMoveStart={() => (moved.current = true)}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -215,6 +237,12 @@ export function MapView() {
       </Source>
 
       {/* Display-only markers: their wrappers must not catch the pointer, or they block the waypoints beneath. */}
+      {userLocation && (
+        <Marker longitude={userLocation[0]} latitude={userLocation[1]} style={PASSIVE}>
+          <div className="user-location" data-testid="user-location" title="You are here" />
+        </Marker>
+      )}
+
       {hovered && !lineDrag && (
         <Marker longitude={hovered[0] ?? 0} latitude={hovered[1] ?? 0} style={PASSIVE}>
           <div className="hover-dot" data-testid="hover-dot" />
