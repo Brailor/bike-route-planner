@@ -209,7 +209,12 @@ services/routing/
     moved and has no waypoints yet. Otherwise stays on Vienna. A dot marks the user's position either way
   - Unit tests (`locate`, `region`, MapView opening position) and e2e `location.spec.ts` (Graz → centred there;
     Berlin and denied → Vienna). Each condition confirmed to fail a test when removed
-- [ ] `Geocoder` adapter + Photon implementation (public API for now), dev proxy `/geo`
+- [x] `Geocoder` adapter + Photon implementation (public API for now), dev proxy `/geo`
+  - ADR 0006. `geocoding/types.ts` + `geocoding/photon/` (request, response, `PhotonGeocoder`). Region-limited
+    (`bbox`), ranking point rounded to ~1 km, queries under 3 characters not sent, identical-looking results merged;
+    errors as `GeocodingError` (`unavailable` incl. 429 / `bad_request`), aborts pass through
+  - Fixtures from the public API (`fixtures:record-photon`): a partial name, a Graz address, a Hungarian town, no
+    match. Each rule confirmed to fail a test when removed. Proxy confirmed live (`/geo/api` → 200). No UI yet
 - [ ] Start and destination address fields with autocomplete
 
 ### M2: Flag unrideable sections

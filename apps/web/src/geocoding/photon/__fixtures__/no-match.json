@@ -1,0 +1,12 @@
+{
+  "name": "no-match",
+  "input": {
+    "query": "qxzvkwjh"
+  },
+  "params": "q=qxzvkwjh&limit=8&bbox=9.5%2C45.7%2C22.95%2C49.05",
+  "status": 200,
+  "response": {
+    "type": "FeatureCollection",
+    "features": []
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "name": "address-graz",
+  "input": {
+    "query": "Herrengasse 16 Graz",
+    "near": [15.44, 47.07]
+  },
+  "params": "q=Herrengasse+16+Graz&limit=8&bbox=9.5%2C45.7%2C22.95%2C49.05&lon=15.44&lat=47.07",
+  "status": 200,
+  "response": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "N",
+          "osm_id": 999516246,
+          "osm_key": "tourism",
+          "osm_value": "museum",
+          "type": "house",
+          "housenumber": "16",
+          "name": "Landeszeughaus",
+          "street": "Herrengasse",
+          "locality": "Katastralgemeinde Innere Stadt",
+          "district": "Innere Stadt",
+          "city": "Graz",
+          "state": "Steiermark",
+          "country": "Österreich",
+          "postcode": "8010",
+          "countrycode": "AT"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [15.4398828, 47.0698025]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "N",
+          "osm_id": 1858696267,
+          "osm_key": "place",
+          "osm_value": "house",
+          "type": "house",
+          "housenumber": "16",
+          "street": "Herrengasse",
+          "locality": "Katastralgemeinde Innere Stadt",
+          "district": "Innere Stadt",
+          "city": "Graz",
+          "state": "Steiermark",
+          "country": "Österreich",
+          "postcode": "8010",
+          "countrycode": "AT"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [15.4396712, 47.0699746]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "N",
+          "osm_id": 446865211,
+          "osm_key": "information",
+          "osm_value": "office",
+          "type": "house",
+          "housenumber": "16",
+          "name": "Tourismus Information",
+          "street": "Herrengasse",
+          "locality": "Katastralgemeinde Innere Stadt",
+          "district": "Innere Stadt",
+          "city": "Graz",
+          "state": "Steiermark",
+          "country": "Österreich",
+          "postcode": "8010",
+          "countrycode": "AT"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [15.4399343, 47.0697699]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "N",
+          "osm_id": 1570339337,
+          "osm_key": "shop",
+          "osm_value": "clothes",
+          "type": "house",
+          "housenumber": "16",
+          "name": "Saleva Store",
+          "street": "Herrengasse",
+          "locality": "Katastralgemeinde Innere Stadt",
+          "district": "Innere Stadt",
+          "city": "Graz",
+          "state": "Steiermark",
+          "country": "Österreich",
+          "postcode": "8010",
+          "countrycode": "AT"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [15.4394847, 47.0701591]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "name": "town-gyor",
+  "input": {
+    "query": "Győr"
+  },
+  "params": "q=Gy%C5%91r&limit=8&bbox=9.5%2C45.7%2C22.95%2C49.05",
+  "status": 200,
+  "response": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1440627,
+          "osm_key": "place",
+          "osm_value": "city",
+          "type": "city",
+          "name": "Győr",
+          "county": "Győr-Moson-Sopron megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [17.5098749, 47.7478298, 17.8081732, 47.5915535]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [17.6342832, 47.6835029]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "N",
+          "osm_id": 91687004,
+          "osm_key": "railway",
+          "osm_value": "station",
+          "type": "house",
+          "housenumber": "4",
+          "name": "Győr",
+          "street": "Révai Miklós utca",
+          "district": "Belváros",
+          "city": "Győr",
+          "county": "Győr-Moson-Sopron megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "postcode": "9021",
+          "countrycode": "HU"
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [17.6348269, 47.6820845]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 22249,
+          "osm_key": "place",
+          "osm_value": "county",
+          "type": "county",
+          "name": "Győr-Moson-Sopron megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "6"
+          },
+          "extent": [16.4215432, 48.0224651, 17.9368946, 47.2722962]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [17.3796437, 47.6610134]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1456931,
+          "osm_key": "place",
+          "osm_value": "village",
+          "type": "city",
+          "name": "Győröcske",
+          "county": "Szabolcs-Szatmár-Bereg megye",
+          "state": "Alföld és Észak",
+          "country": "Magyarország",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [22.130741, 48.3973328, 22.1589306, 48.380304]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [22.1515533, 48.3853608]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1452145,
+          "osm_key": "place",
+          "osm_value": "village",
+          "type": "city",
+          "name": "Győrtelek",
+          "county": "Szabolcs-Szatmár-Bereg megye",
+          "state": "Alföld és Észak",
+          "country": "Magyarország",
+          "postcode": "4752",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [22.3991725, 47.9548896, 22.4603632, 47.8816898]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [22.4406866, 47.9284221]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1131364,
+          "osm_key": "place",
+          "osm_value": "village",
+          "type": "city",
+          "name": "Győrvár",
+          "county": "Vas megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "postcode": "9821",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [16.8188397, 47.0049541, 16.9212034, 46.9696846]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [16.8410909, 46.9871009]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1492766,
+          "osm_key": "place",
+          "osm_value": "village",
+          "type": "city",
+          "name": "Győrsövényház",
+          "county": "Győr-Moson-Sopron megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "postcode": "9161",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [17.3220618, 47.7280412, 17.4302027, 47.6541141]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [17.3737831, 47.690064]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "osm_type": "R",
+          "osm_id": 1440631,
+          "osm_key": "place",
+          "osm_value": "village",
+          "type": "city",
+          "name": "Győrújbarát",
+          "county": "Győr-Moson-Sopron megye",
+          "state": "Dunántúl",
+          "country": "Magyarország",
+          "postcode": "9081",
+          "countrycode": "HU",
+          "extra": {
+            "admin_level": "8"
+          },
+          "extent": [17.5977121, 47.6444834, 17.7021099, 47.5651647]
+        },
+        "geometry": {
+          "type": "Point",
+          "coordinates": [17.6365733, 47.6133844]
+        }
+      }
+    ]
+  }
+}

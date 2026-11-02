@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "fixtures:record": "RECORD_GH_FIXTURES=1 vitest run scripts/record-gh-fixtures.test.ts",
+    "fixtures:record-photon": "RECORD_PHOTON_FIXTURES=1 vitest run scripts/record-photon-fixtures.test.ts",
     "test:coverage": "vitest run --coverage",
     "e2e:live": "playwright test -c playwright.live.config.ts"
   },

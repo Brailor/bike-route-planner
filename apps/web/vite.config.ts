@@ -15,6 +15,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/gh/, ''),
       },
+      // Photon address search (ADR 0006): the public API for now, a self-hosted instance later. Same-origin like /gh,
+      // so switching is a change of target here.
+      '/geo': {
+        target: 'https://photon.komoot.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/geo/, ''),
+      },
     },
   },
   test: {

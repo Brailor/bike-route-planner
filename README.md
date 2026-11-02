@@ -103,6 +103,7 @@ pnpm dev
 Sample requests are in `services/routing/routing.http`.
 
 Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses; what CI runs), `pnpm e2e:live` (Playwright against the running engine; opt-in, run it after changing models, config or the OSM data).
+Recorded responses: `pnpm --filter web fixtures:record` (GraphHopper, needs the engine) and `pnpm --filter web fixtures:record-photon` (Photon, queries the public API).
 
 `config.yml` requirements:
 - `datareader.file` points at the `.pbf` in `data/`
@@ -112,7 +113,7 @@ Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses
 - a car profile exists (for milestone 4)
 - `import.osm.ignored_highways` is set explicitly (required since GraphHopper 11); it is empty because bike and car profiles together need every highway type
 
-The Vite dev server proxies `/gh/*` to `http://localhost:8989` so the browser never deals with CORS.
+The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to the Photon geocoder (`https://photon.komoot.io` for now), so the browser never deals with CORS.
 
 ---
 
