@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GeocodingError, type GeocodeRequest } from '../types';
+import { GeocodingError, MIN_QUERY_LENGTH, type GeocodeRequest } from '../types';
 import addressFixture from './__fixtures__/address-graz.json';
 import noMatchFixture from './__fixtures__/no-match.json';
 import stephansplatzFixture from './__fixtures__/stephansplatz.json';
 import townFixture from './__fixtures__/town-gyor.json';
-import { MIN_QUERY_LENGTH, PhotonGeocoder } from './PhotonGeocoder';
+import { PhotonGeocoder } from './PhotonGeocoder';
 import { buildSearchParams } from './request';
 import { mapSearchResponse, placeLabel, type PhotonResponse } from './response';
 

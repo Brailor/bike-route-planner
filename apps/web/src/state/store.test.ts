@@ -119,3 +119,61 @@ describe('flag selection', () => {
     expect(state().flagSelection).toBeUndefined();
   });
 });
+
+describe('start and destination from address search', () => {
+  afterEach(() => usePlanner.setState(initial, true));
+
+  const graz = { name: 'Graz', point: [15.44, 47.07] as [number, number] };
+  const gyor = { name: 'Győr', point: [17.63, 47.68] as [number, number] };
+  const wien = { name: 'Wien', point: [16.37, 48.21] as [number, number] };
+
+  it('sets the start, then adds the destination after it', () => {
+    state().setStart(graz);
+    expect(state().waypoints).toEqual([graz.point]);
+    state().setDestination(gyor);
+    expect(state().waypoints).toEqual([graz.point, gyor.point]);
+  });
+
+  it('replaces the ends and keeps the via points', () => {
+    state().addWaypoint([16, 48]);
+    state().addWaypoint([16.1, 48.1]);
+    state().addWaypoint([16.2, 48.2]);
+    state().setStart(graz);
+    state().setDestination(gyor);
+    expect(state().waypoints).toEqual([graz.point, [16.1, 48.1], gyor.point]);
+  });
+
+  it('needs a start before a destination', () => {
+    state().setDestination(gyor);
+    expect(state().waypoints).toEqual([]);
+    expect(state().past).toEqual([]);
+  });
+
+  it('names the picked points, by position', () => {
+    state().setStart(graz);
+    state().setDestination(gyor);
+    expect(state().placeNames).toEqual({ '15.44,47.07': 'Graz', '17.63,47.68': 'Győr' });
+  });
+
+  it('is undoable like any waypoint edit', () => {
+    state().setStart(graz);
+    state().setStart(wien);
+    state().undo();
+    expect(state().waypoints).toEqual([graz.point]);
+  });
+
+  it('asks the map to show the waypoints, with a new request each time', () => {
+    state().setStart(graz);
+    const first = state().mapFocus;
+    expect(first).toEqual({ points: [graz.point] });
+    state().setDestination(gyor);
+    expect(state().mapFocus).toEqual({ points: [graz.point, gyor.point] });
+    state().setDestination(gyor);
+    expect(state().mapFocus).not.toBe(first);
+  });
+
+  it('does not move the map for edits on the map', () => {
+    state().addWaypoint([16, 48]);
+    expect(state().mapFocus).toBeUndefined();
+  });
+});

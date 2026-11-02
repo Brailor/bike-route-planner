@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
+import type { Place } from '../geocoding/types';
+import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteResult, RoutingError } from '../routing/types';
 import type { LonLat, Profile, ProfileSettings } from '../types';
@@ -9,6 +11,9 @@ export type RouteStatus =
   | { state: 'loading' }
   | { state: 'ready' }
   | { state: 'error'; kind: RoutingError['kind']; message: string };
+
+/** Key for `placeNames`. */
+export const pointKey = ([lon, lat]: LonLat) => `${lon},${lat}`;
 
 /** Undo steps kept; older ones are dropped. */
 const HISTORY_LIMIT = 100;
@@ -28,12 +33,26 @@ interface PlannerState {
   hoverIndex: number | undefined;
   /** The stretch being picked for a flag; undefined when not flagging. Indices into `route`'s coordinates. */
   flagSelection: FlagSelection | undefined;
+  /**
+   * Names of waypoints picked by address search, by `pointKey`. Points placed or dragged on the map have none.
+   * Keyed by position, not index, so the names follow undo/redo and drop off when a point is dragged away.
+   */
+  placeNames: Record<string, string>;
+  /** Ranks address suggestions near what the user is looking at. Updated when the map stops moving. */
+  mapCentre: LonLat;
+  /** Asks the map to show these points (fly to one, fit several). A new object per request. */
+  mapFocus: { points: LonLat[] } | undefined;
 
   addWaypoint: (point: LonLat) => void;
   insertWaypoint: (index: number, point: LonLat) => void;
   moveWaypoint: (index: number, point: LonLat) => void;
   removeWaypoint: (index: number) => void;
   clearWaypoints: () => void;
+  /** Replaces the start, or sets it when there are no waypoints. Shows it on the map. */
+  setStart: (place: Pick<Place, 'name' | 'point'>) => void;
+  /** Replaces the destination, or adds it after a lone start. Needs a start. Shows the route's ends on the map. */
+  setDestination: (place: Pick<Place, 'name' | 'point'>) => void;
+  setMapCentre: (centre: LonLat) => void;
   undo: () => void;
   redo: () => void;
   setProfile: (profile: Profile) => void;
@@ -48,7 +67,7 @@ interface PlannerState {
   setRouteError: (error: RoutingError) => void;
 }
 
-export const usePlanner = create<PlannerState>()((set) => {
+export const usePlanner = create<PlannerState>()((set, get) => {
   /** Applies a waypoint edit as one undoable step. */
   const edit = (change: (waypoints: LonLat[]) => LonLat[]) =>
     set((s) => ({
@@ -56,6 +75,18 @@ export const usePlanner = create<PlannerState>()((set) => {
       past: [...s.past, s.waypoints].slice(-HISTORY_LIMIT),
       future: [],
     }));
+
+  /** A waypoint edit from address search: also remembers the place's name and brings the waypoints into view. */
+  const pick = (
+    place: Pick<Place, 'name' | 'point'>,
+    change: (waypoints: LonLat[]) => LonLat[],
+  ) => {
+    edit(change);
+    set((s) => ({
+      placeNames: { ...s.placeNames, [pointKey(place.point)]: place.name },
+      mapFocus: { points: s.waypoints },
+    }));
+  };
 
   return {
     waypoints: [],
@@ -67,12 +98,21 @@ export const usePlanner = create<PlannerState>()((set) => {
     status: { state: 'idle' },
     hoverIndex: undefined,
     flagSelection: undefined,
+    placeNames: {},
+    mapCentre: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],
+    mapFocus: undefined,
 
     addWaypoint: (point) => edit((w) => [...w, point]),
     insertWaypoint: (index, point) => edit((w) => [...w.slice(0, index), point, ...w.slice(index)]),
     moveWaypoint: (index, point) => edit((w) => w.map((p, i) => (i === index ? point : p))),
     removeWaypoint: (index) => edit((w) => w.filter((_, i) => i !== index)),
     clearWaypoints: () => edit(() => []),
+    setStart: (place) => pick(place, (w) => [place.point, ...w.slice(1)]),
+    setDestination: (place) => {
+      if (get().waypoints.length === 0) return;
+      pick(place, (w) => [...(w.length === 1 ? w : w.slice(0, -1)), place.point]);
+    },
+    setMapCentre: (mapCentre) => set({ mapCentre }),
     undo: () =>
       set((s) => {
         const previous = s.past.at(-1);

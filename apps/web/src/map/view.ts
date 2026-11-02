@@ -26,3 +26,13 @@ export function projectToScreen(
   const c = mercator(view.longitude, view.latitude);
   return { x: size.width / 2 + p.x - c.x, y: size.height / 2 + p.y - c.y };
 }
+
+/**
+ * Margins (px) when fitting points into view, keeping them clear of the side panel: 320 px wide plus its 12 px
+ * inset on wide screens, a bottom sheet of up to half the height on narrow ones (index.css).
+ */
+export function focusPadding(width: number, height: number) {
+  return width > 640
+    ? { top: 60, right: 60, bottom: 60, left: 332 + 60 }
+    : { top: 40, right: 40, bottom: height / 2 + 40, left: 40 };
+}

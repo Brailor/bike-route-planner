@@ -1,9 +1,12 @@
-import { GeocodingError, type GeocodeRequest, type Geocoder, type Place } from '../types';
+import {
+  GeocodingError,
+  MIN_QUERY_LENGTH,
+  type GeocodeRequest,
+  type Geocoder,
+  type Place,
+} from '../types';
 import { buildSearchParams } from './request';
 import { mapSearchResponse, type PhotonResponse } from './response';
-
-/** Shorter queries aren't sent: they match half the map, and the public API is shared (fair use). */
-export const MIN_QUERY_LENGTH = 3;
 
 export class PhotonGeocoder implements Geocoder {
   /** `baseUrl` defaults to the Vite dev proxy (`/geo` → photon.komoot.io). */

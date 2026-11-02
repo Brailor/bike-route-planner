@@ -84,6 +84,79 @@ body,
   margin-top: 14px;
 }
 
+.route-ends {
+  gap: 8px;
+}
+
+.address {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.address__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.address__input {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.address__input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.address__input:disabled {
+  background: #f5f7fa;
+}
+
+.address__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+.address__option {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.address__option[aria-selected='true'] {
+  background: #f0f4f8;
+}
+
+.address__detail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.address__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.address__note--error {
+  color: var(--error);
+}
+
 .segmented {
   display: flex;
   border: 1px solid var(--border);

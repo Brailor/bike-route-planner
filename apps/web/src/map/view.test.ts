@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INITIAL_VIEW, projectToScreen } from './view';
+import { focusPadding, INITIAL_VIEW, projectToScreen } from './view';
 
 const size = { width: 1280, height: 720 };
 
@@ -20,5 +20,15 @@ describe('projectToScreen', () => {
   it('uses 512 px tiles: one degree of longitude at zoom 9 is 512·2⁹/360 px', () => {
     const p = projectToScreen([INITIAL_VIEW.longitude + 1, INITIAL_VIEW.latitude], size);
     expect(p.x - 640).toBeCloseTo((512 * 2 ** 9) / 360, 6);
+  });
+});
+
+describe('focusPadding', () => {
+  it('keeps fitted points right of the side panel on wide screens', () => {
+    expect(focusPadding(1280, 720).left).toBeGreaterThan(332);
+  });
+
+  it('keeps them above the bottom sheet on narrow screens', () => {
+    expect(focusPadding(400, 800)).toMatchObject({ left: 40, bottom: 440 });
   });
 });

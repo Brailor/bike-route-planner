@@ -1,7 +1,7 @@
 import type { FeatureCollection } from 'geojson';
 import type { ExpressionSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Layer,
   Map,
@@ -11,6 +11,7 @@ import {
   Source,
   type MapEvent,
   type MapLayerMouseEvent,
+  type MapRef,
   type MarkerDragEvent,
 } from 'react-map-gl/maplibre';
 import { selectionGeometry, type FlagHandle } from '../flags/selection';
@@ -21,7 +22,7 @@ import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
 import { currentPosition } from './locate';
-import { INITIAL_VIEW } from './view';
+import { focusPadding, INITIAL_VIEW } from './view';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -40,6 +41,9 @@ const PASSIVE = { pointerEvents: 'none' } as const;
 
 /** Zoom when the map opens on the user's location: a few km across, enough to see the nearby roads. */
 const LOCATED_ZOOM = 12;
+
+/** Zoom after flying to a single searched place: street level. */
+const FOCUS_ZOOM = 14;
 
 const FLAG_HANDLES: readonly FlagHandle[] = ['a', 'b'];
 
@@ -74,6 +78,7 @@ export function MapView() {
   const route = usePlanner((s) => s.route);
   const hoverIndex = usePlanner((s) => s.hoverIndex);
   const flagSelection = usePlanner((s) => s.flagSelection);
+  const mapFocus = usePlanner((s) => s.mapFocus);
   const {
     addWaypoint,
     insertWaypoint,
@@ -81,7 +86,9 @@ export function MapView() {
     removeWaypoint,
     setHoverIndex,
     moveFlagHandle,
+    setMapCentre,
   } = usePlanner.getState();
+  const mapRef = useRef<MapRef>(null);
 
   const runs = useMemo(() => (route ? surfaceRuns(route) : EMPTY), [route]);
   const coordinates = route?.geometry.coordinates;
@@ -123,6 +130,25 @@ export function MapView() {
       const p = e.target.project(w);
       return Math.hypot(p.x - e.point.x, p.y - e.point.y) <= MARKER_RADIUS_PX;
     });
+
+  // Brings searched places into view: flies to a lone one, fits several (start and destination).
+  useEffect(() => {
+    const map = mapRef.current;
+    const points = mapFocus?.points ?? [];
+    const [first, ...rest] = points;
+    if (!map || !first) return;
+    if (!rest.length) {
+      map.flyTo({ center: first, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });
+      return;
+    }
+    const lons = points.map((p) => p[0]);
+    const lats = points.map((p) => p[1]);
+    const { clientWidth, clientHeight } = map.getContainer();
+    map.fitBounds([Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)], {
+      padding: focusPadding(clientWidth, clientHeight),
+      maxZoom: FOCUS_ZOOM,
+    });
+  }, [mapFocus]);
 
   /** Opens the map on the user's location when routing works there; otherwise it stays on INITIAL_VIEW. */
   function handleLoad(e: MapEvent) {
@@ -175,6 +201,7 @@ export function MapView() {
 
   return (
     <Map
+      ref={mapRef}
       initialViewState={INITIAL_VIEW}
       mapStyle={STYLE_URL}
       style={{ width: '100%', height: '100%' }}
@@ -187,6 +214,7 @@ export function MapView() {
       cursor={lineDrag ? 'grabbing' : flagging ? 'default' : overRoute ? 'grab' : 'crosshair'}
       onLoad={handleLoad}
       onMoveStart={() => (moved.current = true)}
+      onMoveEnd={(e) => setMapCentre([e.viewState.longitude, e.viewState.latitude])}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}

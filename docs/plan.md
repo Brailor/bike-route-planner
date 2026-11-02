@@ -215,7 +215,14 @@ services/routing/
     errors as `GeocodingError` (`unavailable` incl. 429 / `bad_request`), aborts pass through
   - Fixtures from the public API (`fixtures:record-photon`): a partial name, a Graz address, a Hungarian town, no
     match. Each rule confirmed to fail a test when removed. Proxy confirmed live (`/geo/api` → 200). No UI yet
-- [ ] Start and destination address fields with autocomplete
+- [x] Start and destination address fields with autocomplete
+  - `RouteEnds` (two `AddressField` comboboxes: mouse or arrows + Enter, Esc / leaving restores) and
+    `usePlaceSearch` (250 ms debounce, aborts stale requests, keeps the last list while the next loads, ranked near
+    the map centre). Picks are undoable waypoint edits (`setStart` / `setDestination`); the map flies to one point or
+    fits both ends clear of the side panel. Destination needs a start; both frozen while flagging. Map-placed points
+    show as "Point on map"
+  - Unit + component tests, e2e `address-search.spec.ts` (recorded Photon answers). Each behaviour confirmed to
+    fail a test when removed
 
 ### M2: Flag unrideable sections
 
