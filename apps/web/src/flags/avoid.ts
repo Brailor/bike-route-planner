@@ -54,11 +54,29 @@ export function trimEnds(line: LineString, metres: number): LineString | Point {
   return { type: 'LineString', coordinates: [start, ...inner, end] };
 }
 
+/** Decimals kept in area coordinates: ~10 cm, far below the area's radius. */
+const AREA_DECIMALS = 6;
+
+const round = (value: number) => Math.round(value * 10 ** AREA_DECIMALS) / 10 ** AREA_DECIMALS;
+
 export function avoidArea(flag: AvoidFlag): Polygon | MultiPolygon {
   const core = trimEnds(flag.geometry, END_TRIM_M);
   const area = buffer(core, AREA_RADIUS_M, { units: 'meters', steps: 4 });
   if (!area) throw new Error(`Could not build an avoid area for flag ${flag.id}`);
-  return area.geometry;
+  // The buffer's trigonometry differs in the last bits between platforms (CI on Linux vs macOS). Rounding makes
+  // the request the same everywhere, which the recorded-request tests rely on.
+  const { geometry } = area;
+  return geometry.type === 'Polygon'
+    ? {
+        type: 'Polygon',
+        coordinates: geometry.coordinates.map((ring) => ring.map((p) => p.map(round))),
+      }
+    : {
+        type: 'MultiPolygon',
+        coordinates: geometry.coordinates.map((poly) =>
+          poly.map((ring) => ring.map((p) => p.map(round))),
+        ),
+      };
 }
 
 /** Shortest distance (m) from a point to a polyline, in a local flat approximation (fine at flag scale). */

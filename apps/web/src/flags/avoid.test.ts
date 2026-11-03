@@ -69,6 +69,12 @@ describe('avoidArea', () => {
     expect(Math.max(...lats)).toBeCloseTo(AREA_RADIUS_M, 0);
   });
 
+  it('rounds coordinates to 6 decimals, so requests are the same on every platform', () => {
+    const area = avoidArea(flag(line(0, 100)));
+    const ring = area.type === 'Polygon' ? area.coordinates[0]! : area.coordinates[0]![0]!;
+    for (const value of ring.flat()) expect(value).toBe(Math.round(value * 1e6) / 1e6);
+  });
+
   it('copes with a flag of a single point', () => {
     expect(avoidArea(flag(line(10, 10))).type).toBe('Polygon');
   });
