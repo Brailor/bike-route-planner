@@ -136,7 +136,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 
 - Select a stretch of the current route (two handles on the line, or click a segment) and mark it "not rideable". Optional fields: a reason (overgrown, private, too steep, bad surface, other) and a note.
 - Store each flag as geometry: the segment's polyline, plus OSM way IDs if obtainable via map matching. Persist flags in IndexedDB.
-- When routing, convert every flag into a small buffered avoid-polygon and apply it through the custom model's `areas` with a priority of 0.
+- When routing, convert every flag into a small buffered avoid-polygon and apply it through the custom model's `areas`, limited to the flag's OSM ways so crossing roads stay usable. Flags are avoided strongly (priority × 0.01), not blocked: when there's no way around, the route still uses the flag and the app warns (ADR 0007).
 - Re-route only between the waypoints around the flagged part, so the rest of the route stays the same.
 - Flags apply to **all future routes**, under every profile. Show them on the map as a toggleable layer, and make them editable and deletable.
 

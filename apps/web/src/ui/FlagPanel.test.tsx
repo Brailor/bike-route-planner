@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { selectionLengthM } from '../flags/selection';
 import { usePlanner } from '../state/store';
 import { fixtureRoute } from '../test/route';
+import flaggedStart from '../routing/graphhopper/__fixtures__/gravel-flagged-start.json';
+import flagged from '../routing/graphhopper/__fixtures__/gravel-flagged.json';
+import { mapRouteResponse, type GhRouteResponse } from '../routing/graphhopper/response';
+import type { AvoidFlag } from '../types';
 import { FlagPanel } from './FlagPanel';
 import { formatDistance } from './format';
 
@@ -60,7 +64,7 @@ describe('FlagPanel saving', () => {
       'Overgrown',
     );
     await userEvent.type(screen.getByRole('textbox', { name: 'Note (optional)' }), 'nettles');
-    await userEvent.click(screen.getByRole('button', { name: 'Save flag' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Flag & reroute' }));
 
     expect(store().flagSelection).toBeUndefined();
     expect(store().flags).toHaveLength(1);
@@ -76,7 +80,7 @@ describe('FlagPanel saving', () => {
   it('saves without details', async () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Save flag' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Flag & reroute' }));
     expect(Object.keys(store().flags[0]!)).not.toContain('reason');
   });
 
@@ -84,7 +88,7 @@ describe('FlagPanel saving', () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
     act(() => store().moveFlagHandle('b', store().flagSelection!.a));
-    expect(screen.getByRole('button', { name: 'Save flag' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Flag & reroute' })).toBeDisabled();
   });
 
   it('shows the count without a route, but nothing to flag', () => {
@@ -94,5 +98,22 @@ describe('FlagPanel saving', () => {
     render(<FlagPanel route={undefined} />);
     expect(screen.getByTestId('flag-count')).toHaveTextContent('1 flagged section');
     expect(screen.queryByRole('button', { name: 'Flag a section' })).not.toBeInTheDocument();
+  });
+});
+
+describe('FlagPanel warning', () => {
+  const flags = flaggedStart.input.flags as unknown as AvoidFlag[];
+  const unavoidable = mapRouteResponse(flaggedStart.response as unknown as GhRouteResponse);
+
+  it('warns when the route still runs over a flag', () => {
+    store().loadFlags(flags);
+    render(<FlagPanel route={unavoidable} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('still uses a flagged section');
+  });
+
+  it('stays quiet when the route went around the flag', () => {
+    store().loadFlags(flagged.input.flags as unknown as AvoidFlag[]);
+    render(<FlagPanel route={mapRouteResponse(flagged.response as unknown as GhRouteResponse)} />);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

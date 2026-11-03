@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RoutingError, type RouteRequest } from '../types';
+import flaggedStartFixture from './__fixtures__/gravel-flagged-start.json';
+import flaggedFixture from './__fixtures__/gravel-flagged.json';
 import gravelFixture from './__fixtures__/gravel-offroad-80.json';
 import outOfBoundsFixture from './__fixtures__/out-of-bounds.json';
 import roadViaFixture from './__fixtures__/road-via.json';
@@ -11,7 +13,7 @@ const asResponse = (json: unknown) => json as GhRouteResponse;
 
 describe('buildRouteRequestBody', () => {
   // Fixtures are recorded from these exact bodies; if this fails, re-record (pnpm --filter web fixtures:record).
-  it.each([gravelFixture, roadViaFixture, outOfBoundsFixture])(
+  it.each([gravelFixture, roadViaFixture, outOfBoundsFixture, flaggedFixture, flaggedStartFixture])(
     'matches the recorded request ($name)',
     (fx) => {
       expect(buildRouteRequestBody(fx.input as RouteRequest)).toEqual(fx.request);

@@ -226,6 +226,10 @@ services/routing/
 
 ### M2: Flag unrideable sections
 
+Decided with the user (2026-11-02): a flag is only applied once confirmed ("Flag & reroute");
+the flagged stretch stays visible on the map but is never part of the GPX (export only writes the current route);
+flags are avoided strongly rather than blocked, and when a route still has to use one the panel warns.
+
 - [x] IndexedDB storage layer (`idb`) for flags
   - `storage/db.ts` (`openPlannerDb`: versioned upgrade steps, `flags` store keyed by `id`, `createdAt` index) and
     `storage/flagStore.ts` (`FlagStore`: list oldest first / save-or-replace / remove). idb 8.0.4; tests on
@@ -239,10 +243,28 @@ services/routing/
   - Pure helpers in `flags/selection.ts`. Unit + component tests, e2e in `map-interactions.spec.ts`; each guard and
     the snap confirmed to fail its test when removed. Nothing to save yet: that's the flag form, next
 - [ ] Flag form (reason + note); flag layer on the map, toggleable, editable, deletable
-- [ ] Flag → buffered avoid-polygon (turf) → custom-model `areas` with priority 0
-- [ ] Partial reroute: only re-request the legs between the waypoints around the flag
+  - Done: confirm form (optional reason + note, "Save flag") → `AvoidFlag` with the stretch's geometry and the OSM
+    way IDs under it (`flags/flag.ts`); store `flags`; `useFlagPersistence` loads them at startup and keeps
+    IndexedDB in step; dashed layer (white casing, so it reads as flagged over the route); count in the panel.
+    Unit + component tests, e2e `flags.spec.ts` (survives a reload). Each part confirmed to fail a test when removed
+  - Still open: show/hide toggle, edit, delete
+- [x] Flag → buffered avoid-polygon (turf) → custom-model `areas` with priority 0
+  - ADR 0007. Priority × 0.01 (strong avoid, not a block, as decided) and only on the flag's OSM ways: an area alone
+    also blocked crossing roads (live: 3.4 → 5.2 km detour instead of 3.7). Area = stretch trimmed 8 m at each end,
+    buffered 5 m (`@turf/buffer` 7.4.0; tslib pinned to 2.8.1 via override, 2.9.1 too new). Panel warns when the route
+    still runs along a flag (`usesFlag`); confirm button is now "Flag & reroute"
+  - Fixtures `gravel-flagged` (way around: 3.4 → 3.7 km, flag untouched) and `gravel-flagged-start` (no way around:
+    route kept, flag used) recorded from the app's own flag code. e2e `flags.spec.ts`; `e2e:live` checks both cases
+    in the app against the real engine (13/13 pass). Each rule confirmed to fail a test when removed
+  - Main bundle 271 → 564 kB (gzip 87 → 154 kB), nearly all JTS from turf; lazy-loading it is an option
+- [x] Partial reroute: only re-request the legs between the waypoints around the flag
+  - No extra machinery: GraphHopper routes each leg on its own, so legs away from a flag come back identical.
+    Checked live (3 waypoints, flag in leg 2): leg 1 point-for-point identical, leg 2 rerouted (13.7 → 13.8 km)
 - [ ] Map-match flags to OSM way IDs (optional; GraphHopper map-matching)
-- [ ] e2e: flag a segment → alternative appears → fresh route avoids it
+- [x] e2e: flag a segment → alternative appears → fresh route avoids it
+  - `flags.spec.ts` (recorded answers: request carries the flag rules, route 3.4 → 3.7 km, kept after reload and sent
+    with a fresh route) and `e2e:live` (real engine: route changes with no warning, Clear + replan gives the same
+    detour; a flag over the start warns)
 
 ### M3: Workout-matched routes
 

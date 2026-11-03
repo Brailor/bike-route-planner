@@ -6,6 +6,7 @@
   --accent: #c27c0e;
   --accent-fg: #ffffff;
   --error: #b42318;
+  --warning: #b54708;
   --flag: #d6246e;
   font-family:
     system-ui,
@@ -219,6 +220,10 @@ body,
 
 .status--error {
   color: var(--error);
+}
+
+.status--warning {
+  color: var(--warning);
 }
 
 .stats {

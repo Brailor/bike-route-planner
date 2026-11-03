@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { usesFlag } from '../flags/avoid';
 import { FLAG_REASONS, type FlagReason } from '../flags/flag';
 import { selectionLengthM } from '../flags/selection';
 import type { RouteResult } from '../routing/types';
@@ -12,12 +13,14 @@ const flagCount = (n: number) => (n === 1 ? '1 flagged section' : `${n} flagged 
 /** Flagging a stretch of `route` (when there is one), and how many flags exist. */
 export function FlagPanel({ route }: { route: RouteResult | undefined }) {
   const selection = usePlanner((s) => s.flagSelection);
-  const count = usePlanner((s) => s.flags.length);
+  const flags = usePlanner((s) => s.flags);
+  const count = flags.length;
   const start = usePlanner((s) => s.startFlagSelection);
   const cancel = usePlanner((s) => s.cancelFlagSelection);
   const confirm = usePlanner((s) => s.confirmFlag);
   const [reason, setReason] = useState<FlagReason | ''>('');
   const [note, setNote] = useState('');
+  const onFlag = useMemo(() => (route ? usesFlag(route, flags) : false), [route, flags]);
 
   useEffect(() => {
     if (!selection) return;
@@ -35,6 +38,11 @@ export function FlagPanel({ route }: { route: RouteResult | undefined }) {
           <button type="button" className="button" onClick={start}>
             Flag a section
           </button>
+        )}
+        {onFlag && (
+          <p className="status status--warning" role="alert">
+            This route still uses a flagged section: there’s no way around it. Try moving a point.
+          </p>
         )}
         {count > 0 && <p data-testid="flag-count">{flagCount(count)}</p>}
       </section>
@@ -76,7 +84,7 @@ export function FlagPanel({ route }: { route: RouteResult | undefined }) {
           onClick={save}
           disabled={lengthM === 0}
         >
-          Save flag
+          Flag & reroute
         </button>
         <button type="button" className="button" onClick={cancel} title="Cancel (Esc)">
           Cancel

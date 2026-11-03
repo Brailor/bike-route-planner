@@ -1,10 +1,12 @@
 // Engine-neutral routing contract (ADR 0003). The UI only ever sees these types.
 import type { LineString } from 'geojson';
-import type { LonLat, ProfileSettings } from '../types';
+import type { AvoidFlag, LonLat, ProfileSettings } from '../types';
 
 export interface RouteRequest {
   waypoints: LonLat[];
   settings: ProfileSettings;
+  /** Stretches to keep off where there's any way around (README M2). */
+  flags?: readonly AvoidFlag[];
 }
 
 /** A run of geometry segments [from, to) (indices into the route's coordinates) sharing one attribute value. */

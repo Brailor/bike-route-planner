@@ -4,7 +4,10 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { it } from 'vitest';
+import { flagFromSelection } from '../src/flags/flag';
+import { initialSelection } from '../src/flags/selection';
 import { buildRouteRequestBody } from '../src/routing/graphhopper/request';
+import { mapRouteResponse, type GhRouteResponse } from '../src/routing/graphhopper/response';
 import type { RouteRequest } from '../src/routing/types';
 
 const GH = process.env.GH_URL ?? 'http://localhost:8989';
@@ -45,21 +48,37 @@ const CASES: { name: string; input: RouteRequest }[] = [
   },
 ];
 
+async function record(name: string, input: RouteRequest) {
+  const request = buildRouteRequestBody(input);
+  const res = await fetch(`${GH}/route`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const fixture = { name, input, request, status: res.status, response: await res.json() };
+  writeFileSync(join(OUT, `${name}.json`), JSON.stringify(fixture, null, 2) + '\n');
+  return fixture;
+}
+
 it.runIf(process.env.RECORD_GH_FIXTURES)('records GraphHopper fixtures', async () => {
   for (const { name, input } of CASES) {
-    const request = buildRouteRequestBody(input);
-    const res = await fetch(`${GH}/route`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
+    const fixture = await record(name, input);
+    if (name !== 'gravel-offroad-80') continue;
+
+    // Flags drawn on this route as the app makes them: where "Flag a section" puts the handles (there's a way
+    // around), and one over the start (the route can't avoid it).
+    const route = mapRouteResponse(fixture.response as GhRouteResponse);
+    const last = route.geometry.coordinates.length - 1;
+    const created = new Date('2026-11-03T00:00:00Z');
+    const middle = initialSelection(route.geometry.coordinates);
+    const start = { a: 0, b: Math.round(last * 0.3) };
+    await record('gravel-flagged', {
+      ...input,
+      flags: [flagFromSelection(route, middle, {}, 'middle', created)],
     });
-    const fixture = {
-      name,
-      input,
-      request,
-      status: res.status,
-      response: await res.json(),
-    };
-    writeFileSync(join(OUT, `${name}.json`), JSON.stringify(fixture, null, 2) + '\n');
+    await record('gravel-flagged-start', {
+      ...input,
+      flags: [flagFromSelection(route, start, {}, 'start', created)],
+    });
   }
 });

@@ -14,8 +14,12 @@ export interface GhRouteRequestBody {
   custom_model?: CustomModel;
 }
 
-export function buildRouteRequestBody({ waypoints, settings }: RouteRequest): GhRouteRequestBody {
-  const customModel = buildCustomModel(settings);
+export function buildRouteRequestBody({
+  waypoints,
+  settings,
+  flags,
+}: RouteRequest): GhRouteRequestBody {
+  const customModel = buildCustomModel(settings, flags);
   return {
     profile: settings.profile,
     points: waypoints.map(([lon, lat]) => [lon, lat]),

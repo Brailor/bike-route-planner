@@ -102,4 +102,25 @@ describe('useRouting', () => {
       message: 'down',
     });
   });
+  it('reroutes with every flag when one is added', () => {
+    const { engine, calls } = fakeEngine();
+    renderHook(() => useRouting(engine));
+    act(() => {
+      usePlanner.getState().addWaypoint([16.5, 48.2]);
+      usePlanner.getState().addWaypoint([16.6, 48.2]);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.request.flags).toEqual([]);
+
+    const flag = { id: 'f', geometry: route.geometry, createdAt: '2026-11-03T00:00:00Z' };
+    act(() => usePlanner.getState().loadFlags([flag]));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.request.flags).toEqual([flag]);
+  });
 });

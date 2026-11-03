@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ProfileSettings } from '../../types';
-import { buildCustomModel, LIKELY_PAVED, LIKELY_UNPAVED } from './customModel';
+import type { AvoidFlag, ProfileSettings } from '../../types';
+import { buildCustomModel, FLAG_FACTOR, LIKELY_PAVED, LIKELY_UNPAVED } from './customModel';
 
 const factors = (settings: ProfileSettings) =>
   (buildCustomModel(settings)?.priority ?? []).map((s) => Number(s.multiply_by));
@@ -50,5 +50,50 @@ describe('buildCustomModel', () => {
             expect(f).toBeGreaterThanOrEqual(0);
             expect(f).toBeLessThanOrEqual(1);
           }
+  });
+});
+
+describe('buildCustomModel with flags', () => {
+  const flag = (id: string, osmWayIds?: number[]): AvoidFlag => ({
+    id,
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [16.56, 48.2],
+        [16.562, 48.2],
+      ],
+    },
+    createdAt: '2026-11-03T00:00:00Z',
+    ...(osmWayIds && { osmWayIds }),
+  });
+
+  it('penalises each flag only on its own ways, inside its own area', () => {
+    const model = buildCustomModel({ profile: 'road' }, [flag('a', [1, 2]), flag('b', [3])]);
+    expect(model?.areas?.features.map((f) => f.id)).toEqual(['flag_0', 'flag_1']);
+    expect(model?.areas?.features.every((f) => f.geometry.type === 'Polygon')).toBe(true);
+    expect(model?.priority).toEqual([
+      { if: 'in_flag_0 && (osm_way_id == 1 || osm_way_id == 2)', multiply_by: FLAG_FACTOR },
+      { if: 'in_flag_1 && (osm_way_id == 3)', multiply_by: FLAG_FACTOR },
+    ]);
+  });
+
+  it('falls back to the whole area when a flag has no ways recorded', () => {
+    expect(buildCustomModel({ profile: 'road' }, [flag('a')])?.priority).toEqual([
+      { if: 'in_flag_0', multiply_by: FLAG_FACTOR },
+    ]);
+  });
+
+  it('adds the flag rules after the profile settings', () => {
+    const model = buildCustomModel({ profile: 'road', avoidMainRoads: true }, [flag('a', [1])]);
+    expect(model?.priority?.map((s) => s.if)).toEqual([
+      'road_class == TRUNK || road_class == PRIMARY',
+      'road_class == SECONDARY',
+      'in_flag_0 && (osm_way_id == 1)',
+    ]);
+  });
+
+  it('avoids strongly, but within LM limits and without blocking', () => {
+    expect(Number(FLAG_FACTOR)).toBeGreaterThan(0);
+    expect(Number(FLAG_FACTOR)).toBeLessThanOrEqual(0.01);
   });
 });
