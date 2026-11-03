@@ -42,6 +42,13 @@ describe('RouteEnds', () => {
     expect(field('Destination')).toHaveValue('Graz');
   });
 
+  it('is frozen while a flag is being marked on the map', () => {
+    store().addWaypoint([16.37, 48.21]);
+    store().startFlagDraft();
+    render(<RouteEnds geocoder={geocoder} />);
+    expect(field('Start')).toBeDisabled();
+  });
+
   it('is frozen while a flag is being placed', () => {
     store().addWaypoint([16.37, 48.21]);
     store().addWaypoint([16.6, 48.2]);

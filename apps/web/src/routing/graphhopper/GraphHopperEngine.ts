@@ -1,6 +1,7 @@
+import type { LonLat } from '../../types';
 import type { RouteRequest, RouteResult, RoutingEngine } from '../types';
 import { RoutingError } from '../types';
-import { buildRouteRequestBody } from './request';
+import { buildRouteRequestBody, buildTraceRequestBody, type GhRouteRequestBody } from './request';
 import {
   mapErrorResponse,
   mapRouteResponse,
@@ -15,13 +16,21 @@ export class GraphHopperEngine implements RoutingEngine {
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
   ) {}
 
-  async route(request: RouteRequest, signal?: AbortSignal): Promise<RouteResult> {
+  route(request: RouteRequest, signal?: AbortSignal): Promise<RouteResult> {
+    return this.post(buildRouteRequestBody(request), signal);
+  }
+
+  trace(points: LonLat[], signal?: AbortSignal): Promise<RouteResult> {
+    return this.post(buildTraceRequestBody(points), signal);
+  }
+
+  private async post(body: GhRouteRequestBody, signal?: AbortSignal): Promise<RouteResult> {
     let res: Response;
     try {
       res = await this.fetchFn(`${this.baseUrl}/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildRouteRequestBody(request)),
+        body: JSON.stringify(body),
         signal,
       });
     } catch (err) {

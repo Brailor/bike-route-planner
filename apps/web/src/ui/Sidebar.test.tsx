@@ -21,6 +21,14 @@ describe('Sidebar', () => {
     expect(screen.getByText('Click again to set the destination.')).toBeInTheDocument();
   });
 
+  it('drops the waypoint hints while a flag is marked on the map', () => {
+    render(<Sidebar />);
+    act(() => store().startFlagDraft());
+    expect(screen.queryByText('Click the map to set a start point.')).not.toBeInTheDocument();
+    act(() => store().cancelFlagDraft());
+    expect(screen.getByText('Click the map to set a start point.')).toBeInTheDocument();
+  });
+
   it('shows progress while routing', () => {
     withTwoWaypoints();
     store().setRouteLoading();

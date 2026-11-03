@@ -37,6 +37,11 @@ export interface RouteResult {
 
 export interface RoutingEngine {
   route(request: RouteRequest, signal?: AbortSignal): Promise<RouteResult>;
+  /**
+   * The most direct way through `points` over any road or path, ignoring profile preferences and flags: for marking
+   * a stretch on the map (README M2), not for riding.
+   */
+  trace(points: LonLat[], signal?: AbortSignal): Promise<RouteResult>;
 }
 
 export class RoutingError extends Error {

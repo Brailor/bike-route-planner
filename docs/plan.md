@@ -265,7 +265,18 @@ flags are avoided strongly rather than blocked, and when a route still has to us
 - [x] Partial reroute: only re-request the legs between the waypoints around the flag
   - No extra machinery: GraphHopper routes each leg on its own, so legs away from a flag come back identical.
     Checked live (3 waypoints, flag in leg 2): leg 1 point-for-point identical, leg 2 rerouted (13.7 → 13.8 km)
+- [x] Flag a section without a route (added on request, 2026-11-03)
+  - "Flag on map": clicks are traced by `RoutingEngine.trace` (GraphHopper: mtb profile, `distance_influence: 5000`,
+    so the most direct way over any road or path; live Donau-Auen: mtb 15.4 km by default, 13.1 km traced, car 13.2
+    km). The trace becomes the flag (geometry + way IDs from the graph, so avoiding works as for route flags).
+    Route, waypoints and address fields stay frozen while marking; Esc cancels
+  - Two clicks for the ends, then drag either end to adjust. A "point by point" mode was tried alongside it and dropped
+    (user's choice, 2026-11-03)
+  - Unit + component tests; e2e `flag-on-map.spec.ts` (two clicks, third ignored, re-trace on drag, clicking an end
+    adds nothing, saved flag sent with the next route, marking over an existing route); `e2e:live` marks the
+    Donau-Auen middle with no route, then the route avoids it. Each part confirmed to fail a test when removed
 - [ ] Map-match flags to OSM way IDs (optional; GraphHopper map-matching)
+  - Not needed so far: flags take their way IDs from the route or the trace
 - [x] e2e: flag a segment → alternative appears → fresh route avoids it
   - `flags.spec.ts` (recorded answers: request carries the flag rules, route 3.4 → 3.7 km, kept after reload and sent
     with a fresh route) and `e2e:live` (real engine: route changes with no warning, Clear + replan gives the same

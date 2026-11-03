@@ -1,3 +1,4 @@
+import type { LonLat } from '../../types';
 import type { RouteRequest } from '../types';
 import { buildCustomModel, type CustomModel } from './customModel';
 
@@ -12,6 +13,26 @@ export interface GhRouteRequestBody {
   instructions: false;
   details: readonly string[];
   custom_model?: CustomModel;
+}
+
+/** Traces use the most permissive bike profile, so any rideable way can be marked. */
+export const TRACE_PROFILE = 'mtb';
+/**
+ * Makes distance outweigh the profile's preferences, so a trace takes the most direct way between the clicks: the
+ * stretch the user means. Live (Donau-Auen): mtb 15.4 km by default, 13.1 km with this; car 13.2 km.
+ */
+export const TRACE_DISTANCE_INFLUENCE = 5000;
+
+export function buildTraceRequestBody(points: LonLat[]): GhRouteRequestBody {
+  return {
+    profile: TRACE_PROFILE,
+    points: points.map(([lon, lat]) => [lon, lat]),
+    points_encoded: false,
+    elevation: true,
+    instructions: false,
+    details: DETAILS,
+    custom_model: { distance_influence: TRACE_DISTANCE_INFLUENCE },
+  };
 }
 
 export function buildRouteRequestBody({

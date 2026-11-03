@@ -217,4 +217,34 @@ test.describe('app against the live engine', () => {
     await done;
     await expect(page.getByRole('alert')).toContainText('still uses a flagged section');
   });
+
+  test('a section marked on the map without a route is traced and avoided later', async ({
+    page,
+  }) => {
+    await openMap(page);
+    await placeEnds(page);
+    await expect(page.getByTestId('stat-distance')).toBeVisible();
+    const before = await distance(page);
+
+    // Borrow two points on the route: where "Flag a section" puts its handles.
+    await page.getByRole('button', { name: 'Flag a section' }).click();
+    const ends = [];
+    for (const handle of await page.getByTestId('flag-handle').all()) {
+      const box = (await handle.boundingBox())!;
+      ends.push({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    }
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Clear' }).click();
+
+    // Mark the same stretch with no route: the engine traces it from the two clicks.
+    await page.getByRole('button', { name: 'Flag on map' }).click();
+    for (const { x, y } of ends) await page.mouse.click(x, y);
+    await expect(page.getByTestId('flag-length')).toBeVisible();
+    await page.getByRole('button', { name: 'Save flag' }).click();
+    await expect(page.getByTestId('flag-count')).toHaveText('1 flagged section');
+
+    await placeEnds(page);
+    await expect.poll(() => distance(page)).not.toBe(before);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
 });

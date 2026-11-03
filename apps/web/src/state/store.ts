@@ -13,6 +13,18 @@ export type RouteStatus =
   | { state: 'ready' }
   | { state: 'error'; kind: RoutingError['kind']; message: string };
 
+/**
+ * A flag being marked on the map (README M2): its two ends, clicked and then draggable, and the stretch traced
+ * between them.
+ */
+export interface FlagDraft {
+  /** The ends clicked so far: none, the start, or start and end. */
+  points: LonLat[];
+  /** The traced stretch for the current points; undefined while tracing or with fewer than two points. */
+  trace: RouteResult | undefined;
+  error: string | undefined;
+}
+
 /** Key for `placeNames`. */
 export const pointKey = ([lon, lat]: LonLat) => `${lon},${lat}`;
 
@@ -34,6 +46,8 @@ interface PlannerState {
   hoverIndex: number | undefined;
   /** The stretch being picked for a flag; undefined when not flagging. Indices into `route`'s coordinates. */
   flagSelection: FlagSelection | undefined;
+  /** A flag being marked on the map instead of on the route; undefined when not marking one. */
+  flagDraft: FlagDraft | undefined;
   /** Every flag, oldest first. They apply to all routes; saved in the browser (useFlagPersistence). */
   flags: AvoidFlag[];
   /** Whether the flags layer is drawn. Hidden flags still apply to routes. */
@@ -69,6 +83,17 @@ interface PlannerState {
   startFlagSelection: () => void;
   moveFlagHandle: (handle: FlagHandle, index: number) => void;
   cancelFlagSelection: () => void;
+  /** Starts marking a flag on the map; ends an on-route selection. */
+  startFlagDraft: () => void;
+  /** Adds a clicked end; clicks after the second are ignored (the ends are dragged instead). */
+  addDraftPoint: (point: LonLat) => void;
+  moveDraftPoint: (index: number, point: LonLat) => void;
+  cancelFlagDraft: () => void;
+  /** Stores the trace for `points`; ignored when the points have changed since (a stale answer). */
+  setDraftTrace: (points: LonLat[], trace: RouteResult) => void;
+  setDraftError: (points: LonLat[], message: string) => void;
+  /** Turns the traced stretch into a flag and ends the draft. */
+  confirmDraft: (details: FlagDetails) => void;
   /** Turns the selected stretch into a flag and ends the selection. */
   confirmFlag: (details: FlagDetails) => void;
   /** Adds flags read from storage, keeping any made before they arrived. */
@@ -84,6 +109,9 @@ interface PlannerState {
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
 }
+
+/** A draft for new points: their old trace no longer fits them. */
+const newDraft = (points: LonLat[]): FlagDraft => ({ points, trace: undefined, error: undefined });
 
 export const usePlanner = create<PlannerState>()((set, get) => {
   /** Applies a waypoint edit as one undoable step. */
@@ -116,6 +144,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     status: { state: 'idle' },
     hoverIndex: undefined,
     flagSelection: undefined,
+    flagDraft: undefined,
     flags: [],
     flagsVisible: true,
     editingFlagId: undefined,
@@ -175,13 +204,52 @@ export const usePlanner = create<PlannerState>()((set, get) => {
       })),
     setHoverIndex: (hoverIndex) => set({ hoverIndex }),
     startFlagSelection: () =>
-      set((s) => (s.route ? { flagSelection: initialSelection(s.route.geometry.coordinates) } : s)),
+      set((s) =>
+        s.route
+          ? { flagSelection: initialSelection(s.route.geometry.coordinates), flagDraft: undefined }
+          : s,
+      ),
     // Always a new object, even for the same index: MapView relies on the re-render to snap a dragged handle.
     moveFlagHandle: (handle, index) =>
       set((s) =>
         s.flagSelection ? { flagSelection: { ...s.flagSelection, [handle]: index } } : s,
       ),
     cancelFlagSelection: () => set({ flagSelection: undefined }),
+    startFlagDraft: () =>
+      set({
+        flagDraft: { points: [], trace: undefined, error: undefined },
+        flagSelection: undefined,
+        editingFlagId: undefined,
+      }),
+    addDraftPoint: (point) =>
+      set((s) => {
+        if (!s.flagDraft) return s;
+        if (s.flagDraft.points.length >= 2) return s;
+        return { flagDraft: newDraft([...s.flagDraft.points, point]) };
+      }),
+    moveDraftPoint: (index, point) =>
+      set((s) =>
+        s.flagDraft
+          ? { flagDraft: newDraft(s.flagDraft.points.map((p, i) => (i === index ? point : p))) }
+          : s,
+      ),
+    cancelFlagDraft: () => set({ flagDraft: undefined }),
+    setDraftTrace: (points, trace) =>
+      set((s) =>
+        s.flagDraft?.points === points ? { flagDraft: { points, trace, error: undefined } } : s,
+      ),
+    setDraftError: (points, error) =>
+      set((s) =>
+        s.flagDraft?.points === points ? { flagDraft: { points, trace: undefined, error } } : s,
+      ),
+    confirmDraft: (details) =>
+      set((s) => {
+        const trace = s.flagDraft?.trace;
+        if (!trace) return s;
+        const all = { a: 0, b: trace.geometry.coordinates.length - 1 };
+        const flag = flagFromSelection(trace, all, details, crypto.randomUUID(), new Date());
+        return { flags: [...s.flags, flag], flagDraft: undefined };
+      }),
     confirmFlag: (details) =>
       set((s) => {
         if (!s.route || !s.flagSelection) return s;

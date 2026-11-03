@@ -12,6 +12,8 @@ export interface CustomModelStatement {
 }
 
 export interface CustomModel {
+  /** How much distance counts against priority; under LM it can only be raised (ADR 0002). */
+  distance_influence?: number;
   /** Named areas for conditions: a feature with id `x` is tested as `in_x`. */
   areas?: FeatureCollection<Polygon | MultiPolygon>;
   priority?: CustomModelStatement[];

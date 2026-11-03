@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { FLAG_REASONS, flagLengthM, type FlagReason } from '../flags/flag';
 import { usePlanner } from '../state/store';
 import type { AvoidFlag, LonLat } from '../types';
+import { FlagDetailsFields } from './FlagDetailsFields';
 import { formatDistance } from './format';
-
-const REASONS = Object.entries(FLAG_REASONS) as [FlagReason, string][];
 
 const flagCount = (n: number) => (n === 1 ? '1 flagged section' : `${n} flagged sections`);
 
@@ -38,21 +37,7 @@ function FlagEditor({ flag }: { flag: AvoidFlag }) {
 
   return (
     <div className="flag-editor">
-      <label className="field">
-        <span className="field__label">Reason (optional)</span>
-        <select value={reason} onChange={(e) => setReason(e.target.value as FlagReason | '')}>
-          <option value="">No reason</option>
-          {REASONS.map(([value, text]) => (
-            <option key={value} value={value}>
-              {text}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span className="field__label">Note (optional)</span>
-        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
+      <FlagDetailsFields reason={reason} note={note} onReason={setReason} onNote={setNote} />
       <div className="flag-panel__actions">
         <button
           type="button"

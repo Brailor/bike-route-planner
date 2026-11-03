@@ -81,6 +81,7 @@ export function MapView() {
   const route = usePlanner((s) => s.route);
   const hoverIndex = usePlanner((s) => s.hoverIndex);
   const flagSelection = usePlanner((s) => s.flagSelection);
+  const flagDraft = usePlanner((s) => s.flagDraft);
   const mapFocus = usePlanner((s) => s.mapFocus);
   const flags = usePlanner((s) => s.flags);
   const flagsVisible = usePlanner((s) => s.flagsVisible);
@@ -94,14 +95,18 @@ export function MapView() {
     moveFlagHandle,
     setMapCentre,
     editFlag,
+    addDraftPoint,
+    moveDraftPoint,
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
   const runs = useMemo(() => (route ? surfaceRuns(route) : EMPTY), [route]);
   const coordinates = route?.geometry.coordinates;
   const hovered = hoverIndex === undefined ? undefined : coordinates?.[hoverIndex];
-  // While a stretch is being picked, the route and its waypoints are frozen: the selection indexes into this route.
-  const flagging = flagSelection !== undefined;
+  // While a flag is being picked on the route or marked on the map, the route and its waypoints are frozen: a
+  // selection indexes into this route, and map clicks belong to the flag.
+  const drafting = flagDraft !== undefined;
+  const flagging = flagSelection !== undefined || drafting;
   const flagsLayer = flagsVisible ? 'visible' : 'none';
   const flagged = useMemo<FeatureCollection>(
     () => ({
@@ -114,22 +119,17 @@ export function MapView() {
     }),
     [flags, editingFlagId],
   );
-  const selected = useMemo<FeatureCollection>(
-    () =>
-      coordinates && flagSelection
-        ? {
-            type: 'FeatureCollection',
-            features: [
-              {
-                type: 'Feature',
-                properties: {},
-                geometry: selectionGeometry(coordinates, flagSelection),
-              },
-            ],
-          }
-        : EMPTY,
-    [coordinates, flagSelection],
-  );
+  // The stretch about to be flagged: picked on the route, or traced through the points clicked on the map.
+  const selected = useMemo<FeatureCollection>(() => {
+    const geometry = flagDraft?.trace
+      ? flagDraft.trace.geometry
+      : coordinates && flagSelection
+        ? selectionGeometry(coordinates, flagSelection)
+        : undefined;
+    return geometry
+      ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] }
+      : EMPTY;
+  }, [coordinates, flagSelection, flagDraft]);
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
@@ -184,6 +184,10 @@ export function MapView() {
   }
 
   function handleClick(e: MapLayerMouseEvent) {
+    if (drafting) {
+      if (!markerClicks.has(e.originalEvent)) addDraftPoint(toLonLat(e));
+      return;
+    }
     if (flagging || onMarker(e)) return;
     // A flag wins over the route beneath it: clicking it opens it in the panel.
     const flag = featureOn(e, FLAGS_HIT_LAYER);
@@ -247,13 +251,15 @@ export function MapView() {
       cursor={
         lineDrag
           ? 'grabbing'
-          : flagging
-            ? 'default'
-            : overRoute
-              ? 'grab'
-              : overFlag
-                ? 'pointer'
-                : 'crosshair'
+          : drafting
+            ? 'crosshair'
+            : flagging
+              ? 'default'
+              : overRoute
+                ? 'grab'
+                : overFlag
+                  ? 'pointer'
+                  : 'crosshair'
       }
       onLoad={handleLoad}
       onMoveStart={() => (moved.current = true)}
@@ -374,6 +380,19 @@ export function MapView() {
             </Marker>
           );
         })}
+
+      {flagDraft?.points.map(([lon, lat], i) => (
+        <Marker
+          key={i}
+          longitude={lon}
+          latitude={lat}
+          draggable
+          onDragEnd={(e: MarkerDragEvent) => moveDraftPoint(i, toLonLat(e))}
+          onClick={(e) => markerClicks.add(e.originalEvent)}
+        >
+          <div className="flag-point" data-testid="flag-point" title="Drag to adjust" />
+        </Marker>
+      ))}
 
       {waypoints.map(([lon, lat], i) => {
         const label = waypointLabel(i, waypoints.length);

@@ -10,8 +10,8 @@ export const MAP_POINT_LABEL = 'Point on map';
 export function RouteEnds({ geocoder }: { geocoder?: Geocoder }) {
   const waypoints = usePlanner((s) => s.waypoints);
   const placeNames = usePlanner((s) => s.placeNames);
-  // Like the map, the ends are frozen while a stretch is being picked for a flag.
-  const flagging = usePlanner((s) => s.flagSelection !== undefined);
+  // Like the map, the ends are frozen while a flag is being picked or marked.
+  const flagging = usePlanner((s) => s.flagSelection !== undefined || s.flagDraft !== undefined);
   const { setStart, setDestination } = usePlanner.getState();
 
   const start = waypoints[0];

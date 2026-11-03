@@ -1,3 +1,4 @@
+import { useFlagTrace } from './flags/useFlagTrace';
 import { MapView } from './map/MapView';
 import { useRouting } from './routing/useRouting';
 import { useUndoShortcuts } from './state/useUndoShortcuts';
@@ -8,6 +9,7 @@ export function App() {
   useRouting();
   useUndoShortcuts();
   useFlagPersistence();
+  useFlagTrace();
   return (
     <div className="app">
       <MapView />

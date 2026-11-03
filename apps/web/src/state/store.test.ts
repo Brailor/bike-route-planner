@@ -273,3 +273,71 @@ describe('editing flags', () => {
     });
   });
 });
+
+describe('marking a flag on the map', () => {
+  afterEach(() => usePlanner.setState(initial, true));
+
+  const a: [number, number] = [16.56, 48.2];
+  const b: [number, number] = [16.57, 48.2];
+  const c: [number, number] = [16.58, 48.2];
+
+  it('starts a draft, ending an on-route selection', () => {
+    state().setRoute(fixtureRoute);
+    state().startFlagSelection();
+    state().startFlagDraft();
+    expect(state().flagSelection).toBeUndefined();
+    expect(state().flagDraft).toEqual({ points: [], trace: undefined, error: undefined });
+    state().startFlagSelection();
+    expect(state().flagDraft).toBeUndefined();
+  });
+
+  it('takes two ends; later clicks are ignored', () => {
+    state().startFlagDraft();
+    for (const p of [a, b, c]) state().addDraftPoint(p);
+    expect(state().flagDraft?.points).toEqual([a, b]);
+  });
+
+  it('drops the trace when the points change, and ignores a stale one', () => {
+    state().startFlagDraft();
+    state().addDraftPoint(a);
+    state().addDraftPoint(b);
+    const traced = state().flagDraft!.points;
+    state().setDraftTrace(traced, fixtureRoute);
+    expect(state().flagDraft?.trace).toBe(fixtureRoute);
+
+    state().moveDraftPoint(1, c);
+    expect(state().flagDraft?.trace).toBeUndefined();
+    state().setDraftTrace(traced, fixtureRoute); // answer for the old points
+    expect(state().flagDraft?.trace).toBeUndefined();
+    state().setDraftError(traced, 'late');
+    expect(state().flagDraft?.error).toBeUndefined();
+  });
+
+  it('records a trace error for the current points', () => {
+    state().startFlagDraft();
+    state().addDraftPoint(a);
+    state().addDraftPoint(b);
+    state().setDraftError(state().flagDraft!.points, 'No road or path');
+    expect(state().flagDraft).toMatchObject({ trace: undefined, error: 'No road or path' });
+  });
+
+  it('confirms the whole trace as a flag', () => {
+    state().startFlagDraft();
+    state().addDraftPoint(a);
+    state().addDraftPoint(b);
+    state().setDraftTrace(state().flagDraft!.points, fixtureRoute);
+    state().confirmDraft({ reason: 'private' });
+    expect(state().flagDraft).toBeUndefined();
+    expect(state().flags[0]).toMatchObject({ reason: 'private' });
+    expect(state().flags[0]?.geometry.coordinates).toEqual(fixtureRoute.geometry.coordinates);
+  });
+
+  it('confirms nothing before the trace is in', () => {
+    state().startFlagDraft();
+    state().addDraftPoint(a);
+    state().addDraftPoint(b);
+    state().confirmDraft({});
+    expect(state().flags).toEqual([]);
+    expect(state().flagDraft).toBeDefined();
+  });
+});

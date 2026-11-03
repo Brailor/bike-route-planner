@@ -117,3 +117,62 @@ describe('FlagPanel warning', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
+
+describe('FlagPanel marking on the map', () => {
+  const a: [number, number] = [16.56, 48.2];
+  const b: [number, number] = [16.57, 48.2];
+
+  it('offers it without a route', async () => {
+    render(<FlagPanel route={undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Flag on map' }));
+    expect(store().flagDraft).toBeDefined();
+    expect(screen.getByText('Click where the unrideable section starts.')).toBeInTheDocument();
+  });
+
+  it('guides through the clicks and saves the traced section', async () => {
+    render(<FlagPanel route={undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Flag on map' }));
+    act(() => store().addDraftPoint(a));
+    expect(screen.getByText('Now click where it ends.')).toBeInTheDocument();
+    act(() => store().addDraftPoint(b));
+    expect(screen.getByText('Drag either end to adjust.')).toBeInTheDocument();
+    expect(screen.getByText('Tracing…')).toBeInTheDocument();
+    // Without a route there's nothing to reroute.
+    expect(screen.getByRole('button', { name: 'Save flag' })).toBeDisabled();
+
+    act(() => store().setDraftTrace(store().flagDraft!.points, fixtureRoute));
+    expect(screen.getByTestId('flag-length')).toHaveTextContent('3.4 km');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Reason (optional)' }),
+      'Private',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save flag' }));
+    expect(store().flags[0]).toMatchObject({ reason: 'private' });
+    expect(store().flagDraft).toBeUndefined();
+  });
+
+  it('says "Flag & reroute" when there is a route to reroute', async () => {
+    store().setRoute(fixtureRoute);
+    render(<FlagPanel route={fixtureRoute} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Flag on map' }));
+    expect(screen.getByRole('button', { name: 'Flag & reroute' })).toBeDisabled();
+  });
+
+  it('shows why a section couldn’t be traced', () => {
+    render(<FlagPanel route={undefined} />);
+    act(() => {
+      store().startFlagDraft();
+      store().addDraftPoint(a);
+      store().addDraftPoint(b);
+      store().setDraftError(store().flagDraft!.points, 'No road or path connects these points.');
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('No road or path connects these points.');
+  });
+
+  it('cancels with Esc', async () => {
+    render(<FlagPanel route={undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Flag on map' }));
+    await userEvent.keyboard('{Escape}');
+    expect(store().flagDraft).toBeUndefined();
+  });
+});

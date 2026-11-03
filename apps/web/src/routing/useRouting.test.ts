@@ -12,6 +12,7 @@ function fakeEngine() {
   const calls: { request: RouteRequest; signal: AbortSignal | undefined }[] = [];
   let respond: (() => void) | undefined;
   const engine: RoutingEngine = {
+    trace: () => Promise.reject(new Error('not used')),
     route: (request, signal) => {
       calls.push({ request, signal });
       return new Promise((resolve) => {
@@ -86,6 +87,7 @@ describe('useRouting', () => {
   it('stores routing errors for the UI', async () => {
     const engine: RoutingEngine = {
       route: () => Promise.reject(new RoutingError('down', 'unavailable')),
+      trace: () => Promise.reject(new Error('not used')),
     };
     renderHook(() => useRouting(engine));
     act(() => {

@@ -6,7 +6,12 @@ import gravelFixture from './__fixtures__/gravel-offroad-80.json';
 import outOfBoundsFixture from './__fixtures__/out-of-bounds.json';
 import roadViaFixture from './__fixtures__/road-via.json';
 import { GraphHopperEngine } from './GraphHopperEngine';
-import { buildRouteRequestBody } from './request';
+import {
+  buildRouteRequestBody,
+  buildTraceRequestBody,
+  TRACE_DISTANCE_INFLUENCE,
+  TRACE_PROFILE,
+} from './request';
 import { mapErrorResponse, mapRouteResponse, type GhRouteResponse } from './response';
 
 const asResponse = (json: unknown) => json as GhRouteResponse;
@@ -92,6 +97,20 @@ describe('GraphHopperEngine', () => {
     expect(JSON.parse(init?.body as string)).toEqual(gravelFixture.request);
   });
 
+  it('traces through points on the permissive profile, distance first', async () => {
+    const fetchFn = reply(200, gravelFixture.response);
+    const points: [number, number][] = [
+      [16.559, 48.2004],
+      [16.57, 48.198],
+      [16.59, 48.19],
+    ];
+    const trace = await new GraphHopperEngine('/gh', fetchFn).trace(points);
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(url).toBe('/gh/route');
+    expect(JSON.parse(init?.body as string)).toEqual(buildTraceRequestBody(points));
+    expect(trace.attributes.osmWayId.length).toBeGreaterThan(0);
+  });
+
   it('returns the mapped route', async () => {
     const route = await new GraphHopperEngine('/gh', reply(200, gravelFixture.response)).route(
       request,
@@ -125,5 +144,24 @@ describe('GraphHopperEngine', () => {
       vi.fn<typeof fetch>().mockRejectedValue(abortError),
     );
     await expect(engine.route(request, controller.signal)).rejects.toBe(abortError);
+  });
+});
+
+describe('buildTraceRequestBody', () => {
+  it('uses the most permissive bike profile and lets distance dominate, with no flags', () => {
+    const body = buildTraceRequestBody([
+      [16.5, 48.2],
+      [16.6, 48.2],
+    ]);
+    expect(body).toMatchObject({
+      profile: TRACE_PROFILE,
+      points: [
+        [16.5, 48.2],
+        [16.6, 48.2],
+      ],
+      details: expect.arrayContaining(['osm_way_id']) as unknown,
+      custom_model: { distance_influence: TRACE_DISTANCE_INFLUENCE },
+    });
+    expect(body.custom_model).not.toHaveProperty('areas');
   });
 });
