@@ -79,6 +79,7 @@ export function MapView() {
   const hoverIndex = usePlanner((s) => s.hoverIndex);
   const flagSelection = usePlanner((s) => s.flagSelection);
   const mapFocus = usePlanner((s) => s.mapFocus);
+  const flags = usePlanner((s) => s.flags);
   const {
     addWaypoint,
     insertWaypoint,
@@ -95,6 +96,17 @@ export function MapView() {
   const hovered = hoverIndex === undefined ? undefined : coordinates?.[hoverIndex];
   // While a stretch is being picked, the route and its waypoints are frozen: the selection indexes into this route.
   const flagging = flagSelection !== undefined;
+  const flagged = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: flags.map((f) => ({
+        type: 'Feature',
+        properties: { id: f.id },
+        geometry: f.geometry,
+      })),
+    }),
+    [flags],
+  );
   const selected = useMemo<FeatureCollection>(
     () =>
       coordinates && flagSelection
@@ -261,6 +273,23 @@ export function MapView() {
           beforeId="route-line"
           layout={{ 'line-join': 'round', 'line-cap': 'round' }}
           paint={{ 'line-color': FLAG_COLOR, 'line-width': 13 }}
+        />
+      </Source>
+
+      {/* Flagged stretches, on top of the route: shown even where a route still runs over one. */}
+      <Source id="flags" type="geojson" data={flagged}>
+        {/* White under the dashes, so the gaps don't take the route's colour and the stretch reads as flagged. */}
+        <Layer
+          id="flags-casing"
+          type="line"
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': '#ffffff', 'line-width': 8 }}
+        />
+        <Layer
+          id="flags"
+          type="line"
+          layout={{ 'line-join': 'round' }}
+          paint={{ 'line-color': FLAG_COLOR, 'line-width': 5, 'line-dasharray': [1.2, 1] }}
         />
       </Source>
 

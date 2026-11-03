@@ -72,12 +72,8 @@ export function Sidebar() {
       <RouteEnds />
       <ProfilePanel />
       <StatusMessage status={status} waypointCount={waypoints.length} />
-      {route && waypoints.length >= 2 && (
-        <>
-          <RouteSummary route={route} />
-          <FlagPanel route={route} />
-        </>
-      )}
+      {route && waypoints.length >= 2 && <RouteSummary route={route} />}
+      <FlagPanel route={waypoints.length >= 2 ? route : undefined} />
     </aside>
   );
 }

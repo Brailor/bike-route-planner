@@ -366,6 +366,19 @@ body,
   margin: 0;
 }
 
+.flag-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.field select,
+.field input[type='text'] {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
 .flag-handle {
   width: 14px;
   height: 14px;

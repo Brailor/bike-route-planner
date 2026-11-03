@@ -1,10 +1,11 @@
 import { create } from 'zustand';
+import { flagFromSelection, type FlagDetails } from '../flags/flag';
 import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
 import type { Place } from '../geocoding/types';
 import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteResult, RoutingError } from '../routing/types';
-import type { LonLat, Profile, ProfileSettings } from '../types';
+import type { AvoidFlag, LonLat, Profile, ProfileSettings } from '../types';
 
 export type RouteStatus =
   | { state: 'idle' }
@@ -33,6 +34,8 @@ interface PlannerState {
   hoverIndex: number | undefined;
   /** The stretch being picked for a flag; undefined when not flagging. Indices into `route`'s coordinates. */
   flagSelection: FlagSelection | undefined;
+  /** Every flag, oldest first. They apply to all routes; saved in the browser (useFlagPersistence). */
+  flags: AvoidFlag[];
   /**
    * Names of waypoints picked by address search, by `pointKey`. Points placed or dragged on the map have none.
    * Keyed by position, not index, so the names follow undo/redo and drop off when a point is dragged away.
@@ -62,6 +65,10 @@ interface PlannerState {
   startFlagSelection: () => void;
   moveFlagHandle: (handle: FlagHandle, index: number) => void;
   cancelFlagSelection: () => void;
+  /** Turns the selected stretch into a flag and ends the selection. */
+  confirmFlag: (details: FlagDetails) => void;
+  /** Adds flags read from storage, keeping any made before they arrived. */
+  loadFlags: (saved: AvoidFlag[]) => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
@@ -98,6 +105,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     status: { state: 'idle' },
     hoverIndex: undefined,
     flagSelection: undefined,
+    flags: [],
     placeNames: {},
     mapCentre: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],
     mapFocus: undefined,
@@ -146,6 +154,23 @@ export const usePlanner = create<PlannerState>()((set, get) => {
         s.flagSelection ? { flagSelection: { ...s.flagSelection, [handle]: index } } : s,
       ),
     cancelFlagSelection: () => set({ flagSelection: undefined }),
+    confirmFlag: (details) =>
+      set((s) => {
+        if (!s.route || !s.flagSelection) return s;
+        const flag = flagFromSelection(
+          s.route,
+          s.flagSelection,
+          details,
+          crypto.randomUUID(),
+          new Date(),
+        );
+        return { flags: [...s.flags, flag], flagSelection: undefined };
+      }),
+    loadFlags: (saved) =>
+      set((s) => {
+        const savedIds = new Set(saved.map((f) => f.id));
+        return { flags: [...saved, ...s.flags.filter((f) => !savedIds.has(f.id))] };
+      }),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>
       // A new route invalidates the selection: its indices point into the old geometry.

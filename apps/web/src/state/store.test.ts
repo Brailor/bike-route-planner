@@ -177,3 +177,37 @@ describe('start and destination from address search', () => {
     expect(state().mapFocus).toBeUndefined();
   });
 });
+
+describe('flags', () => {
+  afterEach(() => usePlanner.setState(initial, true));
+
+  it('confirms the selected stretch as a flag and ends the selection', () => {
+    state().setRoute(fixtureRoute);
+    state().startFlagSelection();
+    state().moveFlagHandle('a', 2);
+    state().moveFlagHandle('b', 5);
+    state().confirmFlag({ reason: 'private', note: 'gate' });
+
+    expect(state().flagSelection).toBeUndefined();
+    const [flag] = state().flags;
+    expect(flag).toMatchObject({ reason: 'private', note: 'gate' });
+    expect(flag?.geometry.coordinates).toEqual(fixtureRoute.geometry.coordinates.slice(2, 6));
+    expect(flag?.id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('confirms nothing without a selection', () => {
+    state().setRoute(fixtureRoute);
+    state().confirmFlag({});
+    expect(state().flags).toEqual([]);
+  });
+
+  it('puts loaded flags first, keeping ones made before they arrived', () => {
+    state().setRoute(fixtureRoute);
+    state().startFlagSelection();
+    state().confirmFlag({});
+    const early = state().flags[0]!;
+    const saved = { ...early, id: 'saved', createdAt: '2026-10-01T00:00:00.000Z' };
+    state().loadFlags([saved, early]);
+    expect(state().flags.map((f) => f.id)).toEqual(['saved', early.id]);
+  });
+});

@@ -50,3 +50,49 @@ describe('FlagPanel', () => {
     expect(screen.getByRole('button', { name: 'Flag a section' })).toBeInTheDocument();
   });
 });
+
+describe('FlagPanel saving', () => {
+  it('saves the selection with a reason and note, then shows the count', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Reason (optional)' }),
+      'Overgrown',
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Note (optional)' }), 'nettles');
+    await userEvent.click(screen.getByRole('button', { name: 'Save flag' }));
+
+    expect(store().flagSelection).toBeUndefined();
+    expect(store().flags).toHaveLength(1);
+    expect(store().flags[0]).toMatchObject({ reason: 'overgrown', note: 'nettles' });
+    expect(screen.getByTestId('flag-count')).toHaveTextContent('1 flagged section');
+
+    // The next flag starts with an empty form.
+    await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
+    expect(screen.getByRole('combobox', { name: 'Reason (optional)' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Note (optional)' })).toHaveValue('');
+  });
+
+  it('saves without details', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save flag' }));
+    expect(Object.keys(store().flags[0]!)).not.toContain('reason');
+  });
+
+  it('cannot save an empty stretch', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Flag a section' }));
+    act(() => store().moveFlagHandle('b', store().flagSelection!.a));
+    expect(screen.getByRole('button', { name: 'Save flag' })).toBeDisabled();
+  });
+
+  it('shows the count without a route, but nothing to flag', () => {
+    store().loadFlags([
+      { id: 'f', geometry: fixtureRoute.geometry, createdAt: '2026-11-02T00:00:00Z' },
+    ]);
+    render(<FlagPanel route={undefined} />);
+    expect(screen.getByTestId('flag-count')).toHaveTextContent('1 flagged section');
+    expect(screen.queryByRole('button', { name: 'Flag a section' })).not.toBeInTheDocument();
+  });
+});
