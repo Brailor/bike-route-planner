@@ -242,12 +242,17 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     While selecting, map clicks, line drags and waypoint markers don't edit waypoints
   - Pure helpers in `flags/selection.ts`. Unit + component tests, e2e in `map-interactions.spec.ts`; each guard and
     the snap confirmed to fail its test when removed. Nothing to save yet: that's the flag form, next
-- [ ] Flag form (reason + note); flag layer on the map, toggleable, editable, deletable
+- [x] Flag form (reason + note); flag layer on the map, toggleable, editable, deletable
   - Done: confirm form (optional reason + note, "Save flag") → `AvoidFlag` with the stretch's geometry and the OSM
     way IDs under it (`flags/flag.ts`); store `flags`; `useFlagPersistence` loads them at startup and keeps
     IndexedDB in step; dashed layer (white casing, so it reads as flagged over the route); count in the panel.
     Unit + component tests, e2e `flags.spec.ts` (survives a reload). Each part confirmed to fail a test when removed
-  - Still open: show/hide toggle, edit, delete
+  - Managing (`FlagList`): list with reason, length and note; "Show on map" toggle (hidden flags still apply to routes,
+    and can't be clicked); picking a flag in the list or clicking its line on the map (a flag wins over the route
+    under it) opens it for editing, highlighted and brought into view; edit reason/note; delete with an inline
+    confirm, which frees the section for routing again. Unit + component tests; e2e: edit kept across reload,
+    delete reroutes back, map click incl. over the route and after a reload. Each part confirmed to fail a test when
+    removed, except the hidden-layer filter on clicks, which the test only catches some of the time
 - [x] Flag → buffered avoid-polygon (turf) → custom-model `areas` with priority 0
   - ADR 0007. Priority × 0.01 (strong avoid, not a block, as decided) and only on the flag's OSM ways: an area alone
     also blocked crossing roads (live: 3.4 → 5.2 km detour instead of 3.7). Area = stretch trimmed 8 m at each end,

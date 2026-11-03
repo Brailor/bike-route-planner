@@ -4,17 +4,15 @@ import { FLAG_REASONS, type FlagReason } from '../flags/flag';
 import { selectionLengthM } from '../flags/selection';
 import type { RouteResult } from '../routing/types';
 import { usePlanner } from '../state/store';
+import { FlagList } from './FlagList';
 import { formatDistance } from './format';
 
 const REASONS = Object.entries(FLAG_REASONS) as [FlagReason, string][];
 
-const flagCount = (n: number) => (n === 1 ? '1 flagged section' : `${n} flagged sections`);
-
-/** Flagging a stretch of `route` (when there is one), and how many flags exist. */
+/** Flagging a stretch of `route` (when there is one), and the flags made so far. */
 export function FlagPanel({ route }: { route: RouteResult | undefined }) {
   const selection = usePlanner((s) => s.flagSelection);
   const flags = usePlanner((s) => s.flags);
-  const count = flags.length;
   const start = usePlanner((s) => s.startFlagSelection);
   const cancel = usePlanner((s) => s.cancelFlagSelection);
   const confirm = usePlanner((s) => s.confirmFlag);
@@ -44,7 +42,7 @@ export function FlagPanel({ route }: { route: RouteResult | undefined }) {
             This route still uses a flagged section: there’s no way around it. Try moving a point.
           </p>
         )}
-        {count > 0 && <p data-testid="flag-count">{flagCount(count)}</p>}
+        <FlagList />
       </section>
     );
 

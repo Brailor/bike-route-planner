@@ -376,6 +376,66 @@ body,
   gap: 8px;
 }
 
+.button--danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.flag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flag-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flag-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag-list__item {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--flag);
+  border-radius: 6px;
+}
+
+.flag-list__item[aria-current='true'] {
+  background: #fdf2f7;
+}
+
+.flag-list__open {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flag-list__note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.flag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
 .field select,
 .field input[type='text'] {
   padding: 6px 8px;

@@ -211,3 +211,65 @@ describe('flags', () => {
     expect(state().flags.map((f) => f.id)).toEqual(['saved', early.id]);
   });
 });
+
+describe('editing flags', () => {
+  afterEach(() => usePlanner.setState(initial, true));
+
+  function twoFlags() {
+    state().setRoute(fixtureRoute);
+    for (const reason of ['private', 'overgrown'] as const) {
+      state().startFlagSelection();
+      state().confirmFlag({ reason });
+    }
+    return state().flags.map((f) => f.id) as [string, string];
+  }
+
+  it('updates one flag’s details and closes the editor', () => {
+    const [a, b] = twoFlags();
+    const untouched = state().flags[1];
+    state().editFlag(a);
+    state().updateFlag(a, { reason: 'too_steep', note: 'walked' });
+    expect(state().flags[0]).toMatchObject({ id: a, reason: 'too_steep', note: 'walked' });
+    expect(state().flags[1]).toBe(untouched);
+    expect(state().flags[1]?.id).toBe(b);
+    expect(state().editingFlagId).toBeUndefined();
+  });
+
+  it('deletes a flag, closing its editor', () => {
+    const [a, b] = twoFlags();
+    state().editFlag(a);
+    state().deleteFlag(a);
+    expect(state().flags.map((f) => f.id)).toEqual([b]);
+    expect(state().editingFlagId).toBeUndefined();
+  });
+
+  it('keeps another flag open when one is deleted', () => {
+    const [a, b] = twoFlags();
+    state().editFlag(b);
+    state().deleteFlag(a);
+    expect(state().editingFlagId).toBe(b);
+  });
+
+  it('closes the editor when the flags are hidden', () => {
+    const [a] = twoFlags();
+    state().editFlag(a);
+    state().setFlagsVisible(false);
+    expect(state().flagsVisible).toBe(false);
+    expect(state().editingFlagId).toBeUndefined();
+    state().setFlagsVisible(true);
+    expect(state().flagsVisible).toBe(true);
+  });
+
+  it('brings a flag into view on request', () => {
+    state().showOnMap([
+      [16.5, 48.2],
+      [16.6, 48.2],
+    ]);
+    expect(state().mapFocus).toEqual({
+      points: [
+        [16.5, 48.2],
+        [16.6, 48.2],
+      ],
+    });
+  });
+});

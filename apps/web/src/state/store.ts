@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { flagFromSelection, type FlagDetails } from '../flags/flag';
+import { flagFromSelection, withDetails, type FlagDetails } from '../flags/flag';
 import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
 import type { Place } from '../geocoding/types';
 import { INITIAL_VIEW } from '../map/view';
@@ -36,6 +36,10 @@ interface PlannerState {
   flagSelection: FlagSelection | undefined;
   /** Every flag, oldest first. They apply to all routes; saved in the browser (useFlagPersistence). */
   flags: AvoidFlag[];
+  /** Whether the flags layer is drawn. Hidden flags still apply to routes. */
+  flagsVisible: boolean;
+  /** The flag open for editing in the panel, highlighted on the map. */
+  editingFlagId: string | undefined;
   /**
    * Names of waypoints picked by address search, by `pointKey`. Points placed or dragged on the map have none.
    * Keyed by position, not index, so the names follow undo/redo and drop off when a point is dragged away.
@@ -69,6 +73,13 @@ interface PlannerState {
   confirmFlag: (details: FlagDetails) => void;
   /** Adds flags read from storage, keeping any made before they arrived. */
   loadFlags: (saved: AvoidFlag[]) => void;
+  setFlagsVisible: (visible: boolean) => void;
+  editFlag: (id: string | undefined) => void;
+  /** Replaces a flag's reason and note (the stretch itself stays) and closes the editor. */
+  updateFlag: (id: string, details: FlagDetails) => void;
+  deleteFlag: (id: string) => void;
+  /** Brings points into view, e.g. a flag picked from the list. */
+  showOnMap: (points: LonLat[]) => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
@@ -106,6 +117,8 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     hoverIndex: undefined,
     flagSelection: undefined,
     flags: [],
+    flagsVisible: true,
+    editingFlagId: undefined,
     placeNames: {},
     mapCentre: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],
     mapFocus: undefined,
@@ -121,6 +134,21 @@ export const usePlanner = create<PlannerState>()((set, get) => {
       pick(place, (w) => [...(w.length === 1 ? w : w.slice(0, -1)), place.point]);
     },
     setMapCentre: (mapCentre) => set({ mapCentre }),
+    setFlagsVisible: (flagsVisible) =>
+      // A hidden flag can't stay highlighted for editing.
+      set(flagsVisible ? { flagsVisible } : { flagsVisible, editingFlagId: undefined }),
+    editFlag: (editingFlagId) => set({ editingFlagId }),
+    updateFlag: (id, details) =>
+      set((s) => ({
+        flags: s.flags.map((f) => (f.id === id ? withDetails(f, details) : f)),
+        editingFlagId: undefined,
+      })),
+    deleteFlag: (id) =>
+      set((s) => ({
+        flags: s.flags.filter((f) => f.id !== id),
+        editingFlagId: s.editingFlagId === id ? undefined : s.editingFlagId,
+      })),
+    showOnMap: (points) => set({ mapFocus: { points } }),
     undo: () =>
       set((s) => {
         const previous = s.past.at(-1);

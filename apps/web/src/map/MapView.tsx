@@ -29,6 +29,9 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 /** Wide invisible line on top of the route, so it is easy to hover and grab. */
 const ROUTE_HIT_LAYER = 'route-hit';
 
+/** Wide invisible line over the flags, so a flag is easy to click open. */
+const FLAGS_HIT_LAYER = 'flags-hit';
+
 /** Half the waypoint marker's size incl. border (see .waypoint in index.css). */
 const MARKER_RADIUS_PX = 14;
 
@@ -80,6 +83,8 @@ export function MapView() {
   const flagSelection = usePlanner((s) => s.flagSelection);
   const mapFocus = usePlanner((s) => s.mapFocus);
   const flags = usePlanner((s) => s.flags);
+  const flagsVisible = usePlanner((s) => s.flagsVisible);
+  const editingFlagId = usePlanner((s) => s.editingFlagId);
   const {
     addWaypoint,
     insertWaypoint,
@@ -88,6 +93,7 @@ export function MapView() {
     setHoverIndex,
     moveFlagHandle,
     setMapCentre,
+    editFlag,
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
@@ -96,16 +102,17 @@ export function MapView() {
   const hovered = hoverIndex === undefined ? undefined : coordinates?.[hoverIndex];
   // While a stretch is being picked, the route and its waypoints are frozen: the selection indexes into this route.
   const flagging = flagSelection !== undefined;
+  const flagsLayer = flagsVisible ? 'visible' : 'none';
   const flagged = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
       features: flags.map((f) => ({
         type: 'Feature',
-        properties: { id: f.id },
+        properties: { id: f.id, editing: f.id === editingFlagId },
         geometry: f.geometry,
       })),
     }),
-    [flags],
+    [flags, editingFlagId],
   );
   const selected = useMemo<FeatureCollection>(
     () =>
@@ -126,11 +133,14 @@ export function MapView() {
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
+  const [overFlag, setOverFlag] = useState(false);
   const [userLocation, setUserLocation] = useState<LonLat>();
   /** Set once the map moves (a pan, a zoom, a search result); after that, a late location fix must not move it. */
   const moved = useRef(false);
 
-  const onRouteFeature = (e: MapLayerMouseEvent) => Boolean(e.features?.length);
+  const featureOn = (e: MapLayerMouseEvent, layer: string) =>
+    e.features?.find((f) => f.layer.id === layer);
+  const onRouteFeature = (e: MapLayerMouseEvent) => Boolean(featureOn(e, ROUTE_HIT_LAYER));
   // Markers live inside the map's canvas container, so pressing, clicking or dragging one also reaches the map,
   // which would otherwise add a waypoint or start a line drag underneath the marker. Two checks, because each
   // misses a case: a click a marker already handled is recognised by its event (by the time the map sees it, the
@@ -174,7 +184,14 @@ export function MapView() {
   }
 
   function handleClick(e: MapLayerMouseEvent) {
-    if (flagging || onRouteFeature(e) || onMarker(e)) return; // clicks on the line or a marker don't add waypoints
+    if (flagging || onMarker(e)) return;
+    // A flag wins over the route beneath it: clicking it opens it in the panel.
+    const flag = featureOn(e, FLAGS_HIT_LAYER);
+    if (flag) {
+      editFlag(String(flag.properties.id));
+      return;
+    }
+    if (onRouteFeature(e)) return; // clicks on the line don't add waypoints
     addWaypoint(toLonLat(e));
   }
 
@@ -192,6 +209,7 @@ export function MapView() {
     }
     const over = Boolean(coordinates) && onRouteFeature(e);
     setOverRoute(over);
+    setOverFlag(Boolean(featureOn(e, FLAGS_HIT_LAYER)));
     setHoverIndex(over && coordinates ? nearestIndex(coordinates, toLonLat(e)) : undefined);
   }
 
@@ -222,8 +240,21 @@ export function MapView() {
       workerUrl={workerUrl}
       // Expanded (not compact) so the OpenStreetMap attribution required by ODbL is always visible.
       attributionControl={{ compact: false }}
-      interactiveLayerIds={coordinates ? [ROUTE_HIT_LAYER] : []}
-      cursor={lineDrag ? 'grabbing' : flagging ? 'default' : overRoute ? 'grab' : 'crosshair'}
+      interactiveLayerIds={[
+        ...(coordinates ? [ROUTE_HIT_LAYER] : []),
+        ...(flagsVisible && !flagging ? [FLAGS_HIT_LAYER] : []),
+      ]}
+      cursor={
+        lineDrag
+          ? 'grabbing'
+          : flagging
+            ? 'default'
+            : overRoute
+              ? 'grab'
+              : overFlag
+                ? 'pointer'
+                : 'crosshair'
+      }
       onLoad={handleLoad}
       onMoveStart={() => (moved.current = true)}
       onMoveEnd={(e) => setMapCentre([e.viewState.longitude, e.viewState.latitude])}
@@ -279,17 +310,28 @@ export function MapView() {
       {/* Flagged stretches, on top of the route: shown even where a route still runs over one. */}
       <Source id="flags" type="geojson" data={flagged}>
         {/* White under the dashes, so the gaps don't take the route's colour and the stretch reads as flagged. */}
+        {/* The flag open for editing is drawn wider. */}
         <Layer
           id="flags-casing"
           type="line"
-          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
-          paint={{ 'line-color': '#ffffff', 'line-width': 8 }}
+          layout={{ 'line-join': 'round', 'line-cap': 'round', visibility: flagsLayer }}
+          paint={{ 'line-color': '#ffffff', 'line-width': ['case', ['get', 'editing'], 12, 8] }}
         />
         <Layer
           id="flags"
           type="line"
-          layout={{ 'line-join': 'round' }}
-          paint={{ 'line-color': FLAG_COLOR, 'line-width': 5, 'line-dasharray': [1.2, 1] }}
+          layout={{ 'line-join': 'round', visibility: flagsLayer }}
+          paint={{
+            'line-color': FLAG_COLOR,
+            'line-width': ['case', ['get', 'editing'], 8, 5],
+            'line-dasharray': [1.2, 1],
+          }}
+        />
+        <Layer
+          id={FLAGS_HIT_LAYER}
+          type="line"
+          layout={{ visibility: flagsLayer }}
+          paint={{ 'line-color': '#000000', 'line-opacity': 0, 'line-width': 16 }}
         />
       </Source>
 

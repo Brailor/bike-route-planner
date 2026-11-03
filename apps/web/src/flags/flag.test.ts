@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RouteResult } from '../routing/types';
-import { flagFromSelection, selectionWayIds } from './flag';
+import { flagFromSelection, flagLengthM, selectionWayIds, withDetails } from './flag';
 
 const coordinates = [0, 1, 2, 3, 4, 5, 6].map((i) => [16 + i / 1000, 48, 200]);
 
@@ -59,5 +59,36 @@ describe('flagFromSelection', () => {
   it('leaves out what is unknown or empty', () => {
     const flag = flagFromSelection(route, { a: 2, b: 4 }, { note: '   ' }, 'f2', created);
     expect(Object.keys(flag).sort()).toEqual(['createdAt', 'geometry', 'id']);
+  });
+});
+
+describe('withDetails', () => {
+  const base = flagFromSelection(
+    route,
+    { a: 1, b: 3 },
+    { reason: 'private', note: 'gate' },
+    'f',
+    created,
+  );
+
+  it('replaces the reason and note, keeping the stretch', () => {
+    const edited = withDetails(base, { reason: 'too_steep', note: ' walked ' });
+    expect(edited).toEqual({ ...base, reason: 'too_steep', note: 'walked' });
+    expect(edited).not.toBe(base);
+  });
+
+  it('drops a cleared reason or blank note', () => {
+    const edited = withDetails(base, { note: '  ' });
+    expect(edited).not.toHaveProperty('reason');
+    expect(edited).not.toHaveProperty('note');
+    expect(edited.geometry).toBe(base.geometry);
+  });
+});
+
+describe('flagLengthM', () => {
+  it('measures the stretch', () => {
+    // Points 1..3 are 0.002° of longitude apart at 48° N: ~149 m.
+    const flag = flagFromSelection(route, { a: 1, b: 3 }, {}, 'f', created);
+    expect(flagLengthM(flag)).toBeCloseTo(148.8, 0);
   });
 });
