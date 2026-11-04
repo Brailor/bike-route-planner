@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { usePlanner } from '../state/store';
@@ -12,7 +12,18 @@ describe('RouteSummary', () => {
     render(<RouteSummary route={fixtureRoute} />);
     expect(screen.getByTestId('stat-distance')).toHaveTextContent('3.4 km');
     expect(screen.getByTestId('stat-ascent')).toHaveTextContent('8 m');
-    expect(screen.getByTestId('stat-time')).toHaveTextContent('17 min');
+    expect(screen.getByTestId('stat-time')).toHaveTextContent('8 min');
+  });
+
+  it('times the ride with the speed model, at the rider’s power', () => {
+    expect(fixtureRoute.durationS / 60).toBeCloseTo(17, 0); // the engine's own estimate, not used
+    render(<RouteSummary route={fixtureRoute} />);
+    expect(screen.getByTestId('stat-time')).toHaveAttribute('title', 'At a steady 130 W');
+    act(() => usePlanner.getState().updateUserSettings({ ftpW: 100 }));
+    expect(screen.getByTestId('stat-time')).toHaveTextContent('11 min');
+    expect(screen.getByTestId('stat-time')).toHaveAttribute('title', 'At a steady 65 W');
+    act(() => usePlanner.getState().setProfile('mtb'));
+    expect(screen.getByTestId('stat-time')).toHaveTextContent('12 min');
   });
 
   it('shows the surface breakdown and elevation chart', () => {

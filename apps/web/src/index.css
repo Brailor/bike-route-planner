@@ -444,6 +444,32 @@ body,
   font: inherit;
 }
 
+.field input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.field__error {
+  font-size: 12px;
+  color: var(--error);
+}
+
+.field__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rider summary {
+  cursor: pointer;
+}
+
+.rider__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .flag-handle {
   width: 14px;
   height: 14px;

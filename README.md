@@ -222,6 +222,7 @@ interface UserSettings {
   home?: [number, number];
   ftpW?: number;
   weightKg?: number;
+  ridePowerPct?: number;                 // steady power for a ride without a workout, % of FTP
 }
 ```
 

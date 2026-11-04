@@ -50,4 +50,6 @@ export interface UserSettings {
   home?: LonLat;
   ftpW?: number;
   weightKg?: number;
+  /** Steady power for a ride without a workout, as a share of FTP (%). */
+  ridePowerPct?: number;
 }

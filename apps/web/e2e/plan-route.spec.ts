@@ -23,7 +23,7 @@ test('plan a route, switch profile, move the slider, export GPX', async ({ page 
   await placeTwoPoints(page);
   await expect(page.getByTestId('waypoint')).toHaveCount(2);
   await expect(page.getByTestId('stat-distance')).toHaveText('3.4 km');
-  await expect(page.getByTestId('stat-time')).toHaveText('17 min');
+  await expect(page.getByTestId('stat-time')).toHaveText('8 min');
   await expect(page.getByTestId('surface-paved')).toBeVisible();
   expect(requests.at(-1)?.profile).toBe('gravel');
 
@@ -35,13 +35,14 @@ test('plan a route, switch profile, move the slider, export GPX', async ({ page 
   await expect(page.getByTestId('hover-dot')).toBeVisible();
 
   // Switching profile re-routes with the road profile.
+  // (Both fixtures are the same 3.4 km route, which the speed model times the same on both bikes.)
   await page.getByRole('button', { name: 'Road' }).click();
-  await expect(page.getByTestId('stat-time')).toHaveText('31 min');
-  expect(requests.at(-1)?.profile).toBe('road');
+  await expect.poll(() => requests.at(-1)?.profile).toBe('road');
+  await expect(page.getByTestId('stat-time')).toHaveText('8 min');
 
   // The off-road slider changes the custom model sent to the engine.
   await page.getByRole('button', { name: 'Gravel' }).click();
-  await expect(page.getByTestId('stat-time')).toHaveText('17 min');
+  await expect.poll(() => requests.at(-1)?.profile).toBe('gravel');
   await page.getByRole('slider').fill('100');
   await expect.poll(() => requests.at(-1)?.custom_model?.priority?.[0]?.multiply_by).toBe('0.3');
 

@@ -1,6 +1,7 @@
 import { usePlanner, type RouteStatus } from '../state/store';
 import { FlagPanel } from './FlagPanel';
 import { ProfilePanel } from './ProfilePanel';
+import { RiderPanel } from './RiderPanel';
 import { RouteEnds } from './RouteEnds';
 import { RouteSummary } from './RouteSummary';
 
@@ -82,6 +83,7 @@ export function Sidebar() {
       </header>
       <RouteEnds />
       <ProfilePanel />
+      <RiderPanel />
       <StatusMessage status={status} waypointCount={waypoints.length} marking={marking} />
       {route && waypoints.length >= 2 && <RouteSummary route={route} />}
       <FlagPanel route={waypoints.length >= 2 ? route : undefined} />

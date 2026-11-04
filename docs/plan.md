@@ -284,13 +284,22 @@ flags are avoided strongly rather than blocked, and when a route still has to us
 
 ### M3: Workout-matched routes
 
-- [ ] Physics speed model (FTP, weight, CdA, Crr per surface, gradient) + user settings form
+- [x] Physics speed model (FTP, weight, CdA, Crr per surface, gradient) + user settings form
   - Model done (`speed/physics.ts`, `speed/model.ts`): steady-state power ↔ speed (gravity, rolling, drag with air
     density by altitude, 97% drivetrain); per-profile bike setups (mass, CdA, Crr and safe descent speed per surface
     category); gradients smoothed over 100 m; walking floor ~4 km/h; time at every route point for laying workouts
     over the route later. Sanity: road 250 W flat ≈ 38 km/h; gravel 200 W flat asphalt 28–33 km/h. Unit-tested,
     each rule confirmed to fail a test when removed. Values are textbook defaults until calibrated on real rides
-  - Still open: the settings form (FTP, weight), and showing the model's time instead of GraphHopper's
+  - Settings form (sidebar "Rider", collapsed to a one-line summary): FTP, weight and ride power as % of FTP;
+    empty fields use defaults (200 W, 75 kg, 65%), out-of-range values are marked and not applied, a decimal comma
+    works. Saved in IndexedDB (database version 2 adds a `settings` store; tested upgrading a version 1 database with
+    flags). The route summary's time is now the model's: the 3.4 km fixture route is 8 min at 130 W, where
+    GraphHopper said 17. Unit + component tests, e2e `rider.spec.ts` (time follows the settings, kept after reload);
+    each rule confirmed to fail a test when removed
+- [ ] Configurable bike setups, per profile, in rider terms rather than raw coefficients
+  - Bike weight (kg); riding position (upright / hoods / drops → CdA); tyres for gravel and MTB (e.g. 35 mm fast /
+    40–45 mm all-round / knobby → Crr per surface). Maybe one "descending: cautious / normal / confident" for the
+    descent caps. No raw CdA/Crr fields: calibration from ride history should set those instead
 - [ ] Workout input: manual duration, ZWO and FIT workout files
   - Formats decided (2026-11-04), to cover Garmin, MyWhoosh and Intervals.icu: ZWO (MyWhoosh imports ZWO and can't
     export; Intervals.icu and Zwift export it) and FIT workouts (Garmin devices, Intervals.icu; needs

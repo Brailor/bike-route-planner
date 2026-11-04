@@ -3,6 +3,8 @@ import { gpxFileName, toGpx } from '../gpx/exportGpx';
 import { PROFILE_LABELS } from '../profiles/defaults';
 import { surfaceBreakdown } from '../route/surface';
 import type { RouteResult } from '../routing/types';
+import { predictRide } from '../speed/model';
+import { riderFrom } from '../speed/rider';
 import { usePlanner } from '../state/store';
 import { ElevationChart } from './ElevationChart';
 import { formatDistance, formatDuration, formatElevation } from './format';
@@ -19,7 +21,11 @@ function download(fileName: string, contents: string) {
 
 export function RouteSummary({ route }: { route: RouteResult }) {
   const profile = usePlanner((s) => s.profile);
+  const userSettings = usePlanner((s) => s.userSettings);
   const breakdown = useMemo(() => surfaceBreakdown(route), [route]);
+  const rider = useMemo(() => riderFrom(userSettings), [userSettings]);
+  // The speed model's time, not the engine's: it knows the rider's power and weight (README M3).
+  const ride = useMemo(() => predictRide(route, profile, rider), [route, profile, rider]);
 
   function exportGpx() {
     const name = `${PROFILE_LABELS[profile]} route ${formatDistance(route.distanceM)}`;
@@ -39,7 +45,9 @@ export function RouteSummary({ route }: { route: RouteResult }) {
         </div>
         <div>
           <dt>Time</dt>
-          <dd data-testid="stat-time">{formatDuration(route.durationS)}</dd>
+          <dd data-testid="stat-time" title={`At a steady ${Math.round(rider.powerW)} W`}>
+            {formatDuration(ride.durationS)}
+          </dd>
         </div>
       </dl>
       <SurfaceBar breakdown={breakdown} />

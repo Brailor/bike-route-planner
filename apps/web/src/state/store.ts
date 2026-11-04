@@ -5,7 +5,7 @@ import type { Place } from '../geocoding/types';
 import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteResult, RoutingError } from '../routing/types';
-import type { AvoidFlag, LonLat, Profile, ProfileSettings } from '../types';
+import type { AvoidFlag, LonLat, Profile, ProfileSettings, UserSettings } from '../types';
 
 export type RouteStatus =
   | { state: 'idle' }
@@ -63,6 +63,8 @@ interface PlannerState {
   mapCentre: LonLat;
   /** Asks the map to show these points (fly to one, fit several). A new object per request. */
   mapFocus: { points: LonLat[] } | undefined;
+  /** The rider's FTP, weight and ride power; unset fields use defaults. Saved in the browser (useSettingsPersistence). */
+  userSettings: UserSettings;
 
   addWaypoint: (point: LonLat) => void;
   insertWaypoint: (index: number, point: LonLat) => void;
@@ -105,6 +107,10 @@ interface PlannerState {
   deleteFlag: (id: string) => void;
   /** Brings points into view, e.g. a flag picked from the list. */
   showOnMap: (points: LonLat[]) => void;
+  /** Sets fields; an undefined value clears one back to its default. */
+  updateUserSettings: (patch: Partial<UserSettings>) => void;
+  /** Applies settings read from storage, keeping any entered before they arrived. */
+  loadUserSettings: (saved: UserSettings) => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
@@ -151,6 +157,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     placeNames: {},
     mapCentre: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],
     mapFocus: undefined,
+    userSettings: {},
 
     addWaypoint: (point) => edit((w) => [...w, point]),
     insertWaypoint: (index, point) => edit((w) => [...w.slice(0, index), point, ...w.slice(index)]),
@@ -267,6 +274,8 @@ export const usePlanner = create<PlannerState>()((set, get) => {
         const savedIds = new Set(saved.map((f) => f.id));
         return { flags: [...saved, ...s.flags.filter((f) => !savedIds.has(f.id))] };
       }),
+    updateUserSettings: (patch) => set((s) => ({ userSettings: { ...s.userSettings, ...patch } })),
+    loadUserSettings: (saved) => set((s) => ({ userSettings: { ...saved, ...s.userSettings } })),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>
       // A new route invalidates the selection: its indices point into the old geometry.

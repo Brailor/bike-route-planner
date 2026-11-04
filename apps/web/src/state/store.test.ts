@@ -341,3 +341,18 @@ describe('marking a flag on the map', () => {
     expect(state().flagDraft).toBeDefined();
   });
 });
+
+describe('rider settings', () => {
+  it('updates fields, and clears one with undefined', () => {
+    state().updateUserSettings({ ftpW: 250, weightKg: 70 });
+    state().updateUserSettings({ ftpW: undefined, ridePowerPct: 60 });
+    expect(state().userSettings).toEqual({ weightKg: 70, ridePowerPct: 60 });
+    expect(state().userSettings.ftpW).toBeUndefined();
+  });
+
+  it('loads saved settings, keeping fields entered before they arrived', () => {
+    state().updateUserSettings({ weightKg: 70 });
+    state().loadUserSettings({ ftpW: 280, weightKg: 82 });
+    expect(state().userSettings).toEqual({ ftpW: 280, weightKg: 70 });
+  });
+});
