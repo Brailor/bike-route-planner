@@ -1,7 +1,12 @@
 import type { LonLat } from '../../types';
-import type { RouteRequest, RouteResult, RoutingEngine } from '../types';
+import type { RoundTripRequest, RouteRequest, RouteResult, RoutingEngine } from '../types';
 import { RoutingError } from '../types';
-import { buildRouteRequestBody, buildTraceRequestBody, type GhRouteRequestBody } from './request';
+import {
+  buildRoundTripRequestBody,
+  buildRouteRequestBody,
+  buildTraceRequestBody,
+  type GhRouteRequestBody,
+} from './request';
 import {
   mapErrorResponse,
   mapRouteResponse,
@@ -22,6 +27,10 @@ export class GraphHopperEngine implements RoutingEngine {
 
   trace(points: LonLat[], signal?: AbortSignal): Promise<RouteResult> {
     return this.post(buildTraceRequestBody(points), signal);
+  }
+
+  roundTrip(request: RoundTripRequest, signal?: AbortSignal): Promise<RouteResult> {
+    return this.post(buildRoundTripRequestBody(request), signal);
   }
 
   private async post(body: GhRouteRequestBody, signal?: AbortSignal): Promise<RouteResult> {

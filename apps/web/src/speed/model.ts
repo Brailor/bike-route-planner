@@ -48,6 +48,8 @@ const KIT_KG = 2;
 const WALKING_MS = 1.1;
 /** Gradients are measured over this distance (m), so single noisy elevation samples don't make walls. */
 export const GRADE_WINDOW_M = 100;
+/** Altitude for estimates without a route (m): around Vienna. */
+const CRUISE_ELEVATION_M = 200;
 
 export interface Rider {
   weightKg: number;
@@ -92,6 +94,21 @@ export function segmentGrades(
     const to = Math.min(total, middle + windowM / 2);
     return to > from ? (eleAt(to) - eleAt(from)) / (to - from) : 0;
   });
+}
+
+/**
+ * Rough average speed (m/s) before there's a route: flat, on an untagged surface (between paved and gravel), at low
+ * altitude. Sizes loops for a target time; the real routes are timed with `predictRide`.
+ */
+export function cruiseSpeedMs(profile: Profile, rider: Rider): number {
+  const setup = BIKE_SETUPS[profile];
+  const speed = speedForPower(rider.powerW, 0, {
+    massKg: rider.weightKg + KIT_KG + setup.bikeKg,
+    crr: setup.crr.unknown,
+    cdA: setup.cdA,
+    rho: airDensity(CRUISE_ELEVATION_M),
+  });
+  return Math.min(speed, setup.maxKmh.unknown / 3.6);
 }
 
 /** Time for each segment of the route at the rider's steady power, on the profile's bike. */

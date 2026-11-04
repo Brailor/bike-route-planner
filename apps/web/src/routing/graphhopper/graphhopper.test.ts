@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RoutingError, type RouteRequest } from '../types';
+import { distanceM } from '../../geo';
+import { RoutingError, type RoundTripRequest, type RouteRequest } from '../types';
 import flaggedStartFixture from './__fixtures__/gravel-flagged-start.json';
 import flaggedFixture from './__fixtures__/gravel-flagged.json';
 import gravelFixture from './__fixtures__/gravel-offroad-80.json';
 import outOfBoundsFixture from './__fixtures__/out-of-bounds.json';
 import roadViaFixture from './__fixtures__/road-via.json';
+import roundTripFixture from './__fixtures__/gravel-round-trip.json';
 import { GraphHopperEngine } from './GraphHopperEngine';
 import {
+  buildRoundTripRequestBody,
   buildRouteRequestBody,
   buildTraceRequestBody,
+  DETAILS,
   TRACE_DISTANCE_INFLUENCE,
   TRACE_PROFILE,
+  type GhRouteRequestBody,
 } from './request';
 import { mapErrorResponse, mapRouteResponse, type GhRouteResponse } from './response';
 
@@ -111,6 +116,32 @@ describe('GraphHopperEngine', () => {
     expect(trace.attributes.osmWayId.length).toBeGreaterThan(0);
   });
 
+  it('asks for a round trip from the start, with the profile’s model and the flags', async () => {
+    const fetchFn = reply(200, gravelFixture.response);
+    const flag = (flaggedFixture.input as unknown as RouteRequest).flags![0]!;
+    await new GraphHopperEngine('/gh', fetchFn).roundTrip({
+      start: [16.559, 48.2004],
+      distanceM: 30_000.4,
+      seed: 3,
+      settings: request.settings,
+      flags: [flag],
+    });
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(url).toBe('/gh/route');
+    const body = JSON.parse(init?.body as string) as GhRouteRequestBody;
+    expect(body).toMatchObject({
+      profile: 'gravel',
+      points: [[16.559, 48.2004]],
+      algorithm: 'round_trip',
+      'round_trip.distance': 30_000,
+      'round_trip.seed': 3,
+      details: [...DETAILS],
+    });
+    expect(body.custom_model).toEqual(
+      buildRouteRequestBody({ ...request, flags: [flag] }).custom_model,
+    );
+  });
+
   it('returns the mapped route', async () => {
     const route = await new GraphHopperEngine('/gh', reply(200, gravelFixture.response)).route(
       request,
@@ -163,5 +194,17 @@ describe('buildTraceRequestBody', () => {
       custom_model: { distance_influence: TRACE_DISTANCE_INFLUENCE },
     });
     expect(body.custom_model).not.toHaveProperty('areas');
+  });
+});
+
+describe('buildRoundTripRequestBody', () => {
+  it('builds the recorded round-trip request, and the answer is a loop back to the start', () => {
+    const input = roundTripFixture.input as RoundTripRequest;
+    expect(buildRoundTripRequestBody(input)).toEqual(roundTripFixture.request);
+    const loop = mapRouteResponse(asResponse(roundTripFixture.response));
+    const coords = loop.geometry.coordinates;
+    expect(distanceM(coords[0]!, coords.at(-1)!)).toBeLessThan(50);
+    expect(loop.distanceM).toBeGreaterThan(input.distanceM * 0.8);
+    expect(loop.distanceM).toBeLessThan(input.distanceM * 1.2);
   });
 });

@@ -9,6 +9,15 @@ export interface RouteRequest {
   flags?: readonly AvoidFlag[];
 }
 
+/** A loop from `start` back to it, of about `distanceM` (README M3). The engine picks the way; `seed` varies it. */
+export interface RoundTripRequest {
+  start: LonLat;
+  distanceM: number;
+  seed: number;
+  settings: ProfileSettings;
+  flags?: readonly AvoidFlag[];
+}
+
 /** A run of geometry segments [from, to) (indices into the route's coordinates) sharing one attribute value. */
 export interface Span<T> {
   from: number;
@@ -42,6 +51,8 @@ export interface RoutingEngine {
    * a stretch on the map (README M2), not for riding.
    */
   trace(points: LonLat[], signal?: AbortSignal): Promise<RouteResult>;
+  /** A loop of roughly the requested distance; different seeds give different loops. */
+  roundTrip(request: RoundTripRequest, signal?: AbortSignal): Promise<RouteResult>;
 }
 
 export class RoutingError extends Error {

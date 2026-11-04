@@ -1,5 +1,5 @@
 import type { LonLat } from '../../types';
-import type { RouteRequest } from '../types';
+import type { RoundTripRequest, RouteRequest } from '../types';
 import { buildCustomModel, type CustomModel } from './customModel';
 
 /** Path details the app needs (surface breakdown, colouring, flags). Must be in graph.encoded_values. */
@@ -13,6 +13,9 @@ export interface GhRouteRequestBody {
   instructions: false;
   details: readonly string[];
   custom_model?: CustomModel;
+  algorithm?: 'round_trip';
+  'round_trip.distance'?: number;
+  'round_trip.seed'?: number;
 }
 
 /** Traces use the most permissive bike profile, so any rideable way can be marked. */
@@ -49,5 +52,24 @@ export function buildRouteRequestBody({
     instructions: false,
     details: DETAILS,
     ...(customModel && { custom_model: customModel }),
+  };
+}
+
+/**
+ * GraphHopper's round trip: from one point, out through points it picks by distance and seed, and back. Live (Vienna,
+ * gravel): 60 km asked gives 56–65 km, about 0.3 s each; 30 km gives 24–30 km.
+ */
+export function buildRoundTripRequestBody({
+  start,
+  distanceM,
+  seed,
+  settings,
+  flags,
+}: RoundTripRequest): GhRouteRequestBody {
+  return {
+    ...buildRouteRequestBody({ waypoints: [start], settings, ...(flags && { flags }) }),
+    algorithm: 'round_trip',
+    'round_trip.distance': Math.round(distanceM),
+    'round_trip.seed': seed,
   };
 }

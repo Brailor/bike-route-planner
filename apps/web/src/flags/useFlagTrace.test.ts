@@ -11,6 +11,7 @@ function fakeEngine() {
   const answers: ((r: RouteResult | Error) => void)[] = [];
   const engine: RoutingEngine = {
     route: () => Promise.reject(new Error('not used')),
+    roundTrip: () => Promise.reject(new Error('not used')),
     trace: (points, signal) => {
       calls.push({ points, signal });
       return new Promise((resolve, reject) =>

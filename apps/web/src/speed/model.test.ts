@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RouteResult } from '../routing/types';
 import { fixtureRoute } from '../test/route';
 import { airDensity, speedForPower } from './physics';
-import { BIKE_SETUPS, predictRide, segmentGrades } from './model';
+import { BIKE_SETUPS, cruiseSpeedMs, predictRide, segmentGrades } from './model';
 
 /** Metres → degrees of longitude on the equator. */
 const M = 1 / 111_195;
@@ -146,5 +146,28 @@ describe('predictRide', () => {
     const { durationS } = predictRide(fixtureRoute, 'gravel', { weightKg: 75, powerW: 150 });
     expect(durationS / 60).toBeGreaterThan(6);
     expect(durationS / 60).toBeLessThan(12);
+  });
+});
+
+describe('cruiseSpeedMs', () => {
+  it('is the flat speed on an untagged surface: road fastest, MTB slowest', () => {
+    const rider = { weightKg: 75, powerW: 150 };
+    const kmh = (p: 'road' | 'gravel' | 'mtb') => cruiseSpeedMs(p, rider) * 3.6;
+    expect(kmh('gravel')).toBeGreaterThan(25);
+    expect(kmh('gravel')).toBeLessThan(30);
+    expect(kmh('road')).toBeGreaterThan(kmh('gravel'));
+    expect(kmh('mtb')).toBeLessThan(kmh('gravel'));
+  });
+
+  it('matches predictRide on a flat untagged route at the same altitude', () => {
+    // A surface tag the app doesn't know counts as 'unknown'.
+    const route = routeAlong(Array<number>(101).fill(200), 10, 'mystery');
+    const rider = { weightKg: 75, powerW: 150 };
+    const { durationS } = predictRide(route, 'gravel', rider);
+    expect(route.distanceM / durationS).toBeCloseTo(cruiseSpeedMs('gravel', rider), 2);
+  });
+
+  it('is capped at the profile’s safe speed', () => {
+    expect(cruiseSpeedMs('mtb', { weightKg: 75, powerW: 2000 }) * 3.6).toBeCloseTo(40);
   });
 });

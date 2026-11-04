@@ -31,6 +31,7 @@ test.describe('engine contract', () => {
     'out-of-bounds',
     'gravel-flagged',
     'gravel-flagged-start',
+    'gravel-round-trip',
   ]) {
     test(`recorded fixture "${name}" still matches the live engine`, async ({ request }) => {
       const recorded = fixture(name) as ReturnType<typeof fixture> & {

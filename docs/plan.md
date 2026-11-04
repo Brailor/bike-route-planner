@@ -314,7 +314,18 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - Workout model: an interval's power is % FTP or watts; zones derived from FTP when shown. Unit + component tests,
     tests against files written by Garmin's SDK, e2e `workout.spec.ts`; each rule confirmed to fail a test when removed
   - Still open: try a real export from Garmin Connect and from Intervals.icu (needs the user's files)
-- [ ] Candidate generation: GraphHopper `round_trip` with several seeds and distances, plus random-waypoint loops
+- [x] Candidate generation: GraphHopper `round_trip` with several seeds and distances, plus random-waypoint loops
+  - `loops/candidates.ts` (`findLoops`): 6 round trips (seeds) and 6 loops through 3 points on a circle through the
+    start (6 directions), sized from the model's flat cruising speed × 0.9 (circles: roads ≈ 1.35 × straight lines,
+    measured live 1.2–1.5). Each loop off the target time by more than 5% is asked for again in the same direction,
+    scaled by how far off it was; the closer one is kept. Loops sharing over 80% of their ways are merged. Profile
+    settings and flags go with every request; each loop is timed with the speed model
+  - Per loop rather than one shared correction, because the error is mostly terrain. Live, 2.5 h gravel at 130 W:
+    one shared correction gave 5/16 (Stephansplatz) and 8/16 (Lobau) loops within ±10%; per loop, 8/12 and 9/12
+    (1 h from Stephansplatz: 9/12), 20–24 requests, under 0.8 s
+  - `RoutingEngine.roundTrip` (GraphHopper `algorithm: round_trip`, works with LM and custom models); recorded
+    fixture `gravel-round-trip` with a live contract check. Unit-tested with a fake engine; each rule confirmed to
+    fail a test when removed. No UI yet (comes with the top-3 UI)
 - [ ] Segment features: climbs, uninterrupted stretches (signals/stops from OSM)
 - [ ] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
 - [ ] Top-3 UI with intervals overlaid on the map and the elevation chart

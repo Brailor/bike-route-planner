@@ -6,9 +6,13 @@ import { join } from 'node:path';
 import { it } from 'vitest';
 import { flagFromSelection } from '../src/flags/flag';
 import { initialSelection } from '../src/flags/selection';
-import { buildRouteRequestBody } from '../src/routing/graphhopper/request';
+import {
+  buildRoundTripRequestBody,
+  buildRouteRequestBody,
+  type GhRouteRequestBody,
+} from '../src/routing/graphhopper/request';
 import { mapRouteResponse, type GhRouteResponse } from '../src/routing/graphhopper/response';
-import type { RouteRequest } from '../src/routing/types';
+import type { RoundTripRequest, RouteRequest } from '../src/routing/types';
 
 const GH = process.env.GH_URL ?? 'http://localhost:8989';
 const OUT = join(import.meta.dirname, '../src/routing/graphhopper/__fixtures__');
@@ -48,8 +52,11 @@ const CASES: { name: string; input: RouteRequest }[] = [
   },
 ];
 
-async function record(name: string, input: RouteRequest) {
-  const request = buildRouteRequestBody(input);
+async function record(
+  name: string,
+  input: RouteRequest | RoundTripRequest,
+  request: GhRouteRequestBody = buildRouteRequestBody(input as RouteRequest),
+) {
   const res = await fetch(`${GH}/route`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -60,7 +67,16 @@ async function record(name: string, input: RouteRequest) {
   return fixture;
 }
 
+// A short loop from the same start (README M3), kept small enough to commit.
+const ROUND_TRIP: RoundTripRequest = {
+  start: [16.559, 48.2004],
+  distanceM: 10_000,
+  seed: 0,
+  settings: { profile: 'gravel', offroadPreference: 80 },
+};
+
 it.runIf(process.env.RECORD_GH_FIXTURES)('records GraphHopper fixtures', async () => {
+  await record('gravel-round-trip', ROUND_TRIP, buildRoundTripRequestBody(ROUND_TRIP));
   for (const { name, input } of CASES) {
     const fixture = await record(name, input);
     if (name !== 'gravel-offroad-80') continue;
