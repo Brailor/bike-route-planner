@@ -148,7 +148,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 ### M3 — Workout-matched routes
 
 1. **Speed/time model.** Predict ride time from distance, gradient, surface and profile. Start with a physics model (power → speed, using the rider's FTP, weight and CdA estimates). Later, calibrate it from the rider's own history (e.g. Strava activities).
-2. **Workout input.** Enter a duration manually, or import a structured workout file (ZWO, ERG, or an Intervals.icu export).
+2. **Workout input.** Enter a duration manually, or import a structured workout file from Garmin, MyWhoosh or Intervals.icu: **ZWO** (what MyWhoosh imports, and what Intervals.icu and Zwift export) and **FIT workout files** (Garmin devices and Intervals.icu).
 3. **Candidate generation.** Generate many loops from the start point. Use GraphHopper's round-trip algorithm with different seeds and distances, plus random-waypoint loops.
 4. **Scoring.** Rank candidates by:
    - how closely the predicted total time matches the workout's,
@@ -252,4 +252,4 @@ interface UserSettings {
 - ~~How reliable is bike-carriage data (`bikes_allowed` in GTFS) for ÖBB and MÁV?~~ There is none: the column is absent from the ÖBB, MÁV and GYSEV feeds. Use rules by train category plus user corrections.
 - Transitous public API vs self-hosted MOTIS: the public API is for open-source projects only (published under an OSS licence, `User-Agent` with a contact). Decide before M4.
 - ~~Exact GraphHopper version and encoded-value names.~~ Resolved: GraphHopper 11.1; see `services/routing/config.yml`.
-- Workout file format to support first (ZWO vs Intervals.icu).
+- ~~Workout file format to support first (ZWO vs Intervals.icu).~~ Both ZWO and FIT workouts, covering Garmin, MyWhoosh and Intervals.icu (2026-11-04).

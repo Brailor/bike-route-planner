@@ -285,7 +285,16 @@ flags are avoided strongly rather than blocked, and when a route still has to us
 ### M3: Workout-matched routes
 
 - [ ] Physics speed model (FTP, weight, CdA, Crr per surface, gradient) + user settings form
-- [ ] Workout input: manual duration and the first file format (decide ZWO vs Intervals.icu)
+  - Model done (`speed/physics.ts`, `speed/model.ts`): steady-state power ↔ speed (gravity, rolling, drag with air
+    density by altitude, 97% drivetrain); per-profile bike setups (mass, CdA, Crr and safe descent speed per surface
+    category); gradients smoothed over 100 m; walking floor ~4 km/h; time at every route point for laying workouts
+    over the route later. Sanity: road 250 W flat ≈ 38 km/h; gravel 200 W flat asphalt 28–33 km/h. Unit-tested,
+    each rule confirmed to fail a test when removed. Values are textbook defaults until calibrated on real rides
+  - Still open: the settings form (FTP, weight), and showing the model's time instead of GraphHopper's
+- [ ] Workout input: manual duration, ZWO and FIT workout files
+  - Formats decided (2026-11-04), to cover Garmin, MyWhoosh and Intervals.icu: ZWO (MyWhoosh imports ZWO and can't
+    export; Intervals.icu and Zwift export it) and FIT workouts (Garmin devices, Intervals.icu; needs
+    `@garmin/fitsdk`). Intervals.icu also has MRC/ERG/JSON, not needed while ZWO and FIT cover it
 - [ ] Candidate generation: GraphHopper `round_trip` with several seeds and distances, plus random-waypoint loops
 - [ ] Segment features: climbs, uninterrupted stretches (signals/stops from OSM)
 - [ ] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
