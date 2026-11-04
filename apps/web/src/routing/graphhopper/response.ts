@@ -38,6 +38,7 @@ export function mapRouteResponse(json: GhRouteResponse): RouteResult {
       roadClass: spans(path.details.road_class, asTag),
       trackType: spans(path.details.track_type, asTag),
       osmWayId: spans(path.details.osm_way_id, asWayId),
+      crossing: spans(path.details.crossing, asTag),
     },
   };
 }

@@ -36,7 +36,7 @@ function routeAlong(
     ascentM: 0,
     descentM: 0,
     durationS: 0,
-    attributes: { surface: [], roadClass: [], trackType: [], osmWayId: ways },
+    attributes: { surface: [], roadClass: [], trackType: [], osmWayId: ways, crossing: [] },
   };
 }
 

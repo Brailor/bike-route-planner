@@ -326,7 +326,19 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - `RoutingEngine.roundTrip` (GraphHopper `algorithm: round_trip`, works with LM and custom models); recorded
     fixture `gravel-round-trip` with a live contract check. Unit-tested with a fake engine; each rule confirmed to
     fail a test when removed. No UI yet (comes with the top-3 UI)
-- [ ] Segment features: climbs, uninterrupted stretches (signals/stops from OSM)
+- [x] Segment features: climbs, uninterrupted stretches (signals/stops from OSM)
+  - `loops/features.ts`. Climbs (`findClimbs`): from a low point to the top, riding through dips of up to 10 m;
+    kept from 20 m gain and 3% average. Each with length, gain, gradient and riding time (speed model)
+  - Stops (`findStops`) from GraphHopper's `crossing` value, newly in `graph.encoded_values` (needs a re-import, about
+    5 min): traffic signals and level crossings always; zebra and unmarked crossings only where the route is the path
+    crossing the road. Within 30 m counts as one stop. `findStretches` cuts the route at stops, with riding times
+  - Limits: GraphHopper reads crossing tags only, not `highway=traffic_signals` on junctions, so a junction's lights
+    count through its mapped pedestrian crossings (common in Vienna); stop and give-way signs aren't in the graph
+  - Live, 2 h gravel loops: from Stephansplatz 41–75 stops but still a 27–51 min stretch without one; from the Lobau
+    5–35 stops, longest stretches up to 100 min; from Hütteldorf the Wienerwald climbs (up to 240 m, about 30 min,
+    and short 12–13% ramps)
+  - Unit-tested on synthetic routes; each rule confirmed to fail a test when removed. Fixtures re-recorded with the
+    `crossing` detail (geometry gains points where roads are split at crossings; distances unchanged)
 - [ ] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
 - [ ] Top-3 UI with intervals overlaid on the map and the elevation chart
 - [ ] e2e + ±10% time check

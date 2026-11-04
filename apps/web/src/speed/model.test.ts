@@ -24,6 +24,7 @@ function routeAlong(elevations: number[], step: number, surface = 'asphalt'): Ro
       roadClass: [{ from: 0, to: n, value: 'residential' }],
       trackType: [{ from: 0, to: n, value: 'missing' }],
       osmWayId: [{ from: 0, to: n, value: 1 }],
+      crossing: [],
     },
   };
 }

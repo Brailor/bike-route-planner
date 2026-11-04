@@ -2,8 +2,8 @@ import type { LonLat } from '../../types';
 import type { RoundTripRequest, RouteRequest } from '../types';
 import { buildCustomModel, type CustomModel } from './customModel';
 
-/** Path details the app needs (surface breakdown, colouring, flags). Must be in graph.encoded_values. */
-export const DETAILS = ['surface', 'road_class', 'track_type', 'osm_way_id'] as const;
+/** Path details the app needs (surface breakdown, colouring, flags, stops). Must be in graph.encoded_values. */
+export const DETAILS = ['surface', 'road_class', 'track_type', 'osm_way_id', 'crossing'] as const;
 
 export interface GhRouteRequestBody {
   profile: string;

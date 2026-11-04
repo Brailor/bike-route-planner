@@ -98,6 +98,7 @@ describe('surfaceBreakdown', () => {
         ],
         trackType: [{ from: 0, to: 2, value: 'grade2' }],
         osmWayId: [],
+        crossing: [],
       },
     };
     const b = surfaceBreakdown(synthetic);

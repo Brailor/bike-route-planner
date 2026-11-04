@@ -36,6 +36,7 @@ graphhopper:
   # - surface/quality: surface, smoothness, track_type (surface breakdown, gravel slider)
   # - max_slope: steepness checks; osm_way_id: lets flags (M2) record OSM way IDs straight from a route
   # - bike_network, road_environment, max_speed: for profile settings (prefer cycle routes, avoid fast roads)
+  # - crossing: traffic signals, pedestrian and rail crossings on the route, for stretches without stops (M3)
   graph.encoded_values: >-
     racingbike_access, racingbike_average_speed, racingbike_priority,
     bike_access, bike_average_speed, bike_priority,
@@ -44,7 +45,7 @@ graphhopper:
     roundabout, road_access, bike_road_access, foot_road_access,
     road_class, road_environment, max_speed, bike_network,
     surface, smoothness, track_type, mtb_rating, hike_rating, country,
-    average_slope, max_slope, osm_way_id
+    average_slope, max_slope, osm_way_id, crossing
 
   # Elevation from SRTM. Interpolation + smoothing + long-edge sampling keep ascent figures realistic.
   graph.elevation.provider: srtm

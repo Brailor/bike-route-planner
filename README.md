@@ -107,7 +107,7 @@ Recorded responses: `pnpm --filter web fixtures:record` (GraphHopper, needs the 
 
 `config.yml` requirements:
 - `datareader.file` points at the `.pbf` in `data/`
-- encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope` (plus `osm_way_id` for flags)
+- encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope` (plus `osm_way_id` for flags and `crossing` for stops). After changing the encoded values, delete `services/routing/data/graph-cache` so the next start re-imports; until then the engine rejects requests for the new details
 - elevation enabled (SRTM)
 - all profiles use **LM, not CH**, so per-request `custom_model` works. LM rule: a request's custom model may only lower weights, so every `multiply_by` must be within [0, 1] and `distance_influence` can only go up. Profile settings therefore penalise rather than boost.
 - a car profile exists (for milestone 4)

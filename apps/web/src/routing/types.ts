@@ -31,6 +31,12 @@ export interface RouteAttributes {
   roadClass: Span<string>[];
   trackType: Span<string>[];
   osmWayId: Span<number | null>[];
+  /**
+   * Crossings on the route (GraphHopper `crossing`: 'traffic_signals', 'marked', 'unmarked', 'uncontrolled',
+   * 'railway', 'railway_barrier', 'no'), from OSM crossing and level-crossing tags. Junction lights count only through
+   * their pedestrian crossings.
+   */
+  crossing: Span<string>[];
 }
 
 export interface RouteResult {

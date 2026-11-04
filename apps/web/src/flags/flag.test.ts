@@ -20,6 +20,7 @@ const route: RouteResult = {
       { from: 2, to: 4, value: null },
       { from: 4, to: 6, value: 11 },
     ],
+    crossing: [],
   },
 };
 

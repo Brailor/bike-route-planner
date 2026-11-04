@@ -20,18 +20,18 @@
     "points_encoded": false,
     "elevation": true,
     "instructions": false,
-    "details": ["surface", "road_class", "track_type", "osm_way_id"]
+    "details": ["surface", "road_class", "track_type", "osm_way_id", "crossing"]
   },
   "status": 200,
   "response": {
     "hints": {
-      "visited_nodes.sum": 324,
-      "visited_nodes.average": 162
+      "visited_nodes.sum": 214,
+      "visited_nodes.average": 107
     },
     "info": {
       "copyrights": ["GraphHopper", "OpenStreetMap contributors"],
-      "took": 3,
-      "road_data_timestamp": "2026-10-28T21:21:02Z"
+      "took": 2,
+      "road_data_timestamp": "1970-01-01T00:00:00Z"
     },
     "paths": [
       {
@@ -56,6 +56,7 @@
             [16.558785, 48.198448, 153.21],
             [16.559791, 48.197953, 153.04],
             [16.560927, 48.197522, 153.02],
+            [16.563873, 48.196473, 150.88],
             [16.564004, 48.196427, 151.09],
             [16.564208, 48.196389, 151.34],
             [16.564306, 48.196358, 151.47],
@@ -91,45 +92,57 @@
           "surface": [
             [0, 1, "dirt"],
             [1, 3, "missing"],
-            [3, 22, "asphalt"],
-            [22, 27, "missing"],
-            [27, 30, "asphalt"],
-            [30, 31, "missing"],
-            [31, 32, "asphalt"],
-            [32, 35, "asphalt"],
-            [35, 39, "missing"]
+            [3, 23, "asphalt"],
+            [23, 28, "missing"],
+            [28, 31, "asphalt"],
+            [31, 32, "missing"],
+            [32, 33, "asphalt"],
+            [33, 36, "asphalt"],
+            [36, 40, "missing"]
           ],
           "osm_way_id": [
             [0, 1, 30205319],
             [1, 3, 30205271],
             [3, 5, 30205305],
-            [5, 15, 759460451],
-            [15, 17, 1452841233],
-            [17, 18, 1452841238],
-            [18, 19, 1452841239],
-            [19, 22, 1207364462],
-            [22, 27, 1207364461],
-            [27, 30, 55873974],
-            [30, 31, 30651402],
-            [31, 32, 30651505],
-            [32, 35, 30651505],
-            [35, 37, 10593013],
-            [37, 39, 17336310]
+            [5, 16, 759460451],
+            [16, 18, 1452841233],
+            [18, 19, 1452841238],
+            [19, 20, 1452841239],
+            [20, 23, 1207364462],
+            [23, 28, 1207364461],
+            [28, 31, 55873974],
+            [31, 32, 30651402],
+            [32, 33, 30651505],
+            [33, 36, 30651505],
+            [36, 38, 10593013],
+            [38, 40, 17336310]
           ],
           "road_class": [
             [0, 1, "track"],
             [1, 5, "residential"],
-            [5, 19, "path"],
-            [19, 32, "residential"],
-            [32, 35, "residential"],
-            [35, 39, "track"]
+            [5, 20, "path"],
+            [20, 33, "residential"],
+            [33, 36, "residential"],
+            [36, 40, "track"]
           ],
           "track_type": [
             [0, 1, "grade2"],
-            [1, 32, "missing"],
-            [32, 35, "missing"],
-            [35, 37, "grade2"],
-            [37, 39, "grade3"]
+            [1, 33, "missing"],
+            [33, 36, "missing"],
+            [36, 38, "grade2"],
+            [38, 40, "grade3"]
+          ],
+          "crossing": [
+            [0, 3, "missing"],
+            [3, 5, "traffic_signals"],
+            [5, 6, "missing"],
+            [6, 11, "unmarked"],
+            [11, 16, "missing"],
+            [16, 18, "marked"],
+            [18, 19, "missing"],
+            [19, 21, "marked"],
+            [21, 33, "missing"],
+            [33, 40, "missing"]
           ]
         },
         "ascend": 7.75201416015625,

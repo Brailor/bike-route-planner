@@ -42,6 +42,7 @@ function flatRoute(lengthM: number, ways = [nextWay++]): RouteResult {
       roadClass: [{ from: 0, to: 1, value: 'track' }],
       trackType: [{ from: 0, to: 1, value: 'missing' }],
       osmWayId: ways.map((value) => ({ from: 0, to: 1, value })),
+      crossing: [],
     },
   };
 }
