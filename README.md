@@ -10,7 +10,7 @@ Plus a travel feature:
 
 4. **Getting there and back.** Given the user's home and a track's start and end, suggest how to reach the start and get home from the end by **public transport** (with a bike) or by **car**.
 
-> This README is the source of truth for scope. If you are an agent working on this repo, read it fully before writing code, and follow the milestone order below.
+This README describes what the app is for and how to run it. The milestones below are the scope; progress is tracked in [docs/plan.md](docs/plan.md). Coding agents, and anyone changing the code, should also read [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -74,10 +74,15 @@ route-planner/
     scripts/                # setup.sh (download jar + .pbf), start.sh (run the server)
     data/                   # *.osm.pbf, graph cache, SRTM tiles, logs (gitignored)
     routing.http            # sample requests (VS Code REST Client)
-  docs/                     # requirement notes, decisions (ADRs)
+  docs/
+    plan.md                 # implementation plan and progress
+    adr/                    # architecture decisions
+    spikes/                 # findings from early experiments
   .vscode/tasks.json        # "dev" compound task: GraphHopper + Vite
   pnpm-workspace.yaml
-  README.md
+  README.md                 # what the app is for, how to run it, the milestones
+  AGENTS.md                 # how to work on the code (for coding agents and contributors)
+  CLAUDE.md                 # points Claude Code at AGENTS.md
 ```
 
 ---
@@ -105,13 +110,7 @@ Sample requests are in `services/routing/routing.http`.
 Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses; what CI runs), `pnpm e2e:live` (Playwright against the running engine; opt-in, run it after changing models, config or the OSM data).
 Recorded responses: `pnpm --filter web fixtures:record` (GraphHopper, needs the engine) and `pnpm --filter web fixtures:record-photon` (Photon, queries the public API).
 
-`config.yml` requirements:
-- `datareader.file` points at the `.pbf` in `data/`
-- encoded values include at least: `surface, track_type, smoothness, road_class, bike_priority, bike_access, average_slope, max_slope` (plus `osm_way_id` for flags and `crossing` for stops). After changing the encoded values, delete `services/routing/data/graph-cache` so the next start re-imports; until then the engine rejects requests for the new details
-- elevation enabled (SRTM)
-- all profiles use **LM, not CH**, so per-request `custom_model` works. LM rule: a request's custom model may only lower weights, so every `multiply_by` must be within [0, 1] and `distance_influence` can only go up. Profile settings therefore penalise rather than boost.
-- a car profile exists (for milestone 4)
-- `import.osm.ignored_highways` is set explicitly (required since GraphHopper 11); it is empty because bike and car profiles together need every highway type
+The engine's settings are in `services/routing/config.yml` (what it must keep is listed in [AGENTS.md](AGENTS.md#routing-engine)). After changing its encoded values, delete `services/routing/data/graph-cache` so the next `pnpm routing:start` re-imports (about 5 minutes).
 
 The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to the Photon geocoder (`https://photon.komoot.io` for now), so the browser never deals with CORS.
 
@@ -180,72 +179,13 @@ Invert M4: find one-way rides that start and end near stations reachable from ho
 
 ---
 
-## Data model (initial)
+## Documentation
 
-```ts
-type Profile = 'road' | 'gravel' | 'mtb';
-
-interface ProfileSettings {
-  profile: Profile;
-  offroadPreference?: number; // 0..100, gravel only (MTB is always fully off-road)
-  avoidMainRoads?: boolean;
-  // extend as needed; maps to a GraphHopper custom model
-}
-
-interface PlannedRoute {
-  id: string;
-  name: string;
-  waypoints: [number, number][];        // [lon, lat]
-  settings: ProfileSettings;
-  geometry: GeoJSON.LineString;          // with elevation as the 3rd coordinate
-  distanceM: number;
-  ascentM: number;
-  predictedDurationS?: number;
-  createdAt: string;
-}
-
-interface AvoidFlag {
-  id: string;
-  geometry: GeoJSON.LineString;          // flagged segment
-  osmWayIds?: number[];
-  reason?: 'overgrown' | 'private' | 'too_steep' | 'bad_surface' | 'other';
-  note?: string;
-  createdAt: string;
-}
-
-interface Workout {
-  id: string;
-  name: string;
-  totalDurationS: number;
-  intervals: {
-    startS: number;
-    durationS: number;
-    power?: { pctFtp: number } | { watts: number };  // none: free ride, or a heart-rate/cadence target
-    name?: string;
-  }[];                                   // training zone is derived from power and FTP when needed
-}
-
-interface UserSettings {
-  home?: [number, number];
-  ftpW?: number;
-  weightKg?: number;
-  ridePowerPct?: number;                 // steady power for a ride without a workout, % of FTP
-}
-```
-
----
-
-## Conventions
-
-- TypeScript strict mode; no `any` without a comment explaining why.
-- Coordinates are always `[lon, lat]` (GeoJSON order), never `[lat, lon]`.
-- Engine-specific code (GraphHopper, MOTIS) lives behind an adapter interface, so engines can be swapped. The UI never builds engine requests directly.
-- Custom models are versioned JSON files in `services/routing/models/`. UI settings are transformed into model overrides by a pure, unit-tested function.
-- Every milestone ships with tests: unit tests for transforms and scoring, and a Playwright e2e for the main flow.
-- Record architectural decisions as short ADRs in `docs/adr/`.
-- Attribute OpenStreetMap contributors on the map (ODbL).
-- When adding a new feature add new test cases if possible
-- When modifing exisiting code, make sure that the exisiting tests are passing
+- [docs/plan.md](docs/plan.md): the implementation plan and progress, milestone by milestone
+- [docs/adr/](docs/adr/): architecture decisions (routing engine, custom models, flags, geocoding, FIT reader, …)
+- [docs/spikes/](docs/spikes/): findings from early experiments (gravel routing quality, transit data)
+- [AGENTS.md](AGENTS.md): how to work on the code (conventions, tests, the routing engine, working agreements)
+- `apps/web/src/types.ts`: the domain model (routes, flags, workouts, settings)
 
 ## Non-goals (for now)
 

@@ -1,4 +1,5 @@
-// Domain model (README "Data model"). Coordinates are always [lon, lat] (GeoJSON order).
+// Domain model: the source of truth for routes, flags, workouts and settings. Coordinates are always [lon, lat]
+// (GeoJSON order).
 import type { LineString } from 'geojson';
 
 export type LonLat = [lon: number, lat: number];
