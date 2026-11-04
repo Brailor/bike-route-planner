@@ -215,7 +215,12 @@ interface Workout {
   id: string;
   name: string;
   totalDurationS: number;
-  intervals: { startS: number; durationS: number; targetPctFtp: number; kind: 'endurance' | 'tempo' | 'threshold' | 'vo2' | 'recovery' }[];
+  intervals: {
+    startS: number;
+    durationS: number;
+    power?: { pctFtp: number } | { watts: number };  // none: free ride, or a heart-rate/cadence target
+    name?: string;
+  }[];                                   // training zone is derived from power and FTP when needed
 }
 
 interface UserSettings {

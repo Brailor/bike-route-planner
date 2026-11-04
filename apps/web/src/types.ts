@@ -34,16 +34,22 @@ export interface AvoidFlag {
   createdAt: string;
 }
 
+/** A power target: a share of FTP, or watts (Garmin workouts are often in watts). */
+export type PowerTarget = { pctFtp: number } | { watts: number };
+
+export interface WorkoutInterval {
+  startS: number;
+  durationS: number;
+  /** None for free riding, or targets other than power (heart rate, cadence): ridden at the rider's ride power. */
+  power?: PowerTarget;
+  name?: string;
+}
+
 export interface Workout {
   id: string;
   name: string;
   totalDurationS: number;
-  intervals: {
-    startS: number;
-    durationS: number;
-    targetPctFtp: number;
-    kind: 'endurance' | 'tempo' | 'threshold' | 'vo2' | 'recovery';
-  }[];
+  intervals: WorkoutInterval[];
 }
 
 export interface UserSettings {

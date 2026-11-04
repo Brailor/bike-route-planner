@@ -4,6 +4,7 @@ import { ProfilePanel } from './ProfilePanel';
 import { RiderPanel } from './RiderPanel';
 import { RouteEnds } from './RouteEnds';
 import { RouteSummary } from './RouteSummary';
+import { WorkoutPanel } from './WorkoutPanel';
 
 function StatusMessage({
   status,
@@ -84,6 +85,7 @@ export function Sidebar() {
       <RouteEnds />
       <ProfilePanel />
       <RiderPanel />
+      <WorkoutPanel />
       <StatusMessage status={status} waypointCount={waypoints.length} marking={marking} />
       {route && waypoints.length >= 2 && <RouteSummary route={route} />}
       <FlagPanel route={waypoints.length >= 2 ? route : undefined} />

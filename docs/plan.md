@@ -300,10 +300,20 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - Bike weight (kg); riding position (upright / hoods / drops → CdA); tyres for gravel and MTB (e.g. 35 mm fast /
     40–45 mm all-round / knobby → Crr per surface). Maybe one "descending: cautious / normal / confident" for the
     descent caps. No raw CdA/Crr fields: calibration from ride history should set those instead
-- [ ] Workout input: manual duration, ZWO and FIT workout files
+- [x] Workout input: manual duration, ZWO and FIT workout files
   - Formats decided (2026-11-04), to cover Garmin, MyWhoosh and Intervals.icu: ZWO (MyWhoosh imports ZWO and can't
-    export; Intervals.icu and Zwift export it) and FIT workouts (Garmin devices, Intervals.icu; needs
-    `@garmin/fitsdk`). Intervals.icu also has MRC/ERG/JSON, not needed while ZWO and FIT cover it
+    export; Intervals.icu and Zwift export it) and FIT workouts (Garmin devices, Intervals.icu). Intervals.icu also
+    has MRC/ERG/JSON, not needed while ZWO and FIT cover it
+  - Sidebar "Workout": a duration ("1:30" or minutes) or a file; shows name, length, a power profile coloured by zone,
+    and what couldn't be carried over. Kept for the session only (not saved yet)
+  - ZWO (`workouts/zwo.ts`): steady, warm-up/cool-down/ramp (as their average), on/off intervals, free ride, max
+    effort; attribute case ignored; unusable steps skipped with a reason; running workouts rejected
+  - FIT (`workouts/fit.ts`): our own reader, Garmin's SDK in tests only (ADR 0008, licence). Time steps, nested
+    repeats, % FTP / watt / zone power targets; distance, lap-button and condition steps skipped with a warning;
+    heart-rate targets timed at ride power
+  - Workout model: an interval's power is % FTP or watts; zones derived from FTP when shown. Unit + component tests,
+    tests against files written by Garmin's SDK, e2e `workout.spec.ts`; each rule confirmed to fail a test when removed
+  - Still open: try a real export from Garmin Connect and from Intervals.icu (needs the user's files)
 - [ ] Candidate generation: GraphHopper `round_trip` with several seeds and distances, plus random-waypoint loops
 - [ ] Segment features: climbs, uninterrupted stretches (signals/stops from OSM)
 - [ ] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
