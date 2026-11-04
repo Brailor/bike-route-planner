@@ -152,8 +152,10 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 3. **Candidate generation.** Generate many loops from the start point. Use GraphHopper's round-trip algorithm with different seeds and distances, plus random-waypoint loops.
 4. **Scoring.** Rank candidates by:
    - how closely the predicted total time matches the workout's,
-   - whether each interval lands on suitable terrain: a climb of the right length for VO2 or over-under work, and a long uninterrupted stretch with few junctions, traffic signals or stop signs for threshold work (OSM `highway=traffic_signals`, `highway=stop`),
+   - whether each interval lands on suitable terrain: hard intervals on a stretch without stops and not downhill, and threshold and harder ones on a climb. Stops come from OSM crossing tags (traffic lights, level crossings, crossings where a path meets a road); the routing graph doesn't have stop signs,
+   - for rides without hard intervals, how much of the ride is on long stretches without stops,
    - surface and profile fit,
+   - not riding the same roads twice (out-and-back loops score low),
    - avoiding flagged sections (always).
 5. **UI.** Show the top 3 candidates, with the workout's intervals overlaid on the route and the elevation chart.
 

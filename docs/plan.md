@@ -339,7 +339,20 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     and short 12–13% ramps)
   - Unit-tested on synthetic routes; each rule confirmed to fail a test when removed. Fixtures re-recorded with the
     `crossing` detail (geometry gains points where roads are split at crossings; distances unchanged)
-- [ ] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
+- [x] Scoring function (time fit, interval-terrain fit, surface fit, flags), unit-tested
+  - `loops/score.ts`: parts 0–1, weighted: time 0.35 (full on target, 0.6 at ±10%, 0 from ±25%), intervals 0.25,
+    flow 0.1, surface 0.1, variety 0.2; a loop still over a flag keeps half its total. Without hard intervals the
+    interval weight goes to flow
+  - Intervals (tempo and up, ≥ 76% FTP; watts read against FTP): the workout is stretched to the loop's predicted
+    time; each interval scores its longest share without a stop × its share not downhill (steeper than −2%); threshold
+    and up (≥ 91%) × (0.7 + 0.3 × share on a climb). Weighted by interval length
+  - Flow: share of time on stretches of 10 min or more. Surface: paved and unpaved mixed by the off-road setting
+    (road: paved), untagged half each way. Variety: 1 − share on ways ridden again after leaving them
+  - Live, 2 h with 3 × 10 min threshold, gravel: the top 3 were within ±10% from all three starts (113–129 min);
+    Lobau's best are the flat low-stop loops (flow 0.88–0.96), Hütteldorf's the Wienerwald climbs with few stops;
+    loops 30–40% over the time rank last however good their terrain. Variety is near 1 for most loops (GraphHopper's
+    round trips rarely repeat roads); surface scores run low with off-road 80 (Vienna has less unpaved than that asks)
+  - Unit-tested on synthetic loops; each rule confirmed to fail a test when removed
 - [ ] Top-3 UI with intervals overlaid on the map and the elevation chart
 - [ ] e2e + ±10% time check
 
