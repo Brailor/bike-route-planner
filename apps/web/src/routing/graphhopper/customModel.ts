@@ -3,6 +3,7 @@
 // so settings only ever penalise. Expressions follow docs/spikes/2026-10-29-gravel.md.
 import type { FeatureCollection, MultiPolygon, Polygon } from 'geojson';
 import { avoidArea } from '../../flags/avoid';
+import { offroadPreference } from '../../profiles/defaults';
 import type { AvoidFlag, ProfileSettings } from '../../types';
 
 export interface CustomModelStatement {
@@ -86,7 +87,7 @@ export function buildCustomModel(
 ): CustomModel | undefined {
   const priority: CustomModelStatement[] = [];
 
-  const offroad = settings.profile === 'road' ? undefined : settings.offroadPreference;
+  const offroad = offroadPreference(settings);
   if (offroad !== undefined) {
     const p = Math.min(100, Math.max(0, offroad));
     if (p > OFFROAD_NEUTRAL) {

@@ -20,9 +20,15 @@ describe('buildCustomModel', () => {
   });
 
   it('penalises likely-unpaved ways when paved is preferred', () => {
-    expect(buildCustomModel({ profile: 'mtb', offroadPreference: 0 })?.priority).toEqual([
+    expect(buildCustomModel({ profile: 'gravel', offroadPreference: 0 })?.priority).toEqual([
       { if: LIKELY_UNPAVED, multiply_by: '0.3' },
     ]);
+  });
+
+  it('always takes MTB fully off-road, whatever the stored setting', () => {
+    const full = buildCustomModel({ profile: 'gravel', offroadPreference: 100 });
+    expect(buildCustomModel({ profile: 'mtb' })).toEqual(full);
+    expect(buildCustomModel({ profile: 'mtb', offroadPreference: 0 })).toEqual(full);
   });
 
   it('scales the penalty linearly with distance from neutral', () => {

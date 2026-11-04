@@ -36,6 +36,8 @@ export function ProfilePanel() {
         </label>
       )}
 
+      {profile === 'mtb' && <p className="hint">MTB routes always go as off-road as they can.</p>}
+
       <label className="field field--inline">
         <input
           type="checkbox"

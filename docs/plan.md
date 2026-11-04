@@ -172,7 +172,8 @@ services/routing/
 - [x] Insert a waypoint by dragging the route line
   - Inserted into the leg it was dragged from (`insertionIndex`, unit-tested); a plain click on the line does nothing
 - [x] Profile switcher (road / gravel / MTB) and settings panel (off-road slider, avoid main roads)
-  - Each profile keeps its own settings. Defaults: gravel off-road 80, MTB 60 (gravel base is road-like)
+  - Each profile keeps its own settings. Defaults: gravel off-road 80 (gravel base is road-like). MTB has no slider
+    since 2026-11-04 (user's call): always off-road 100. Live, Hütteldorf → Kahlenberg: 2% paved instead of 30% at 60
 - [x] Re-route on change: debounce and abort in-flight requests
   - 250 ms debounce; `useRouting.test.ts` covers debounce, abort, latest-result-wins and errors
 - [x] Route line on the map, coloured by surface
@@ -346,14 +347,29 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - Intervals (tempo and up, ≥ 76% FTP; watts read against FTP): the workout is stretched to the loop's predicted
     time; each interval scores its longest share without a stop × its share not downhill (steeper than −2%); threshold
     and up (≥ 91%) × (0.7 + 0.3 × share on a climb). Weighted by interval length
+  - No intervals on descents (user's call, 2026-11-04): a loop where a hard interval spends more than 20% of its time
+    going downhill keeps 60% of its total, and its card says so. Live (3 × 10 threshold, gravel): 4 of 12 loops from
+    Hütteldorf put an interval on a descent and one made the top 3 before; none now. Flat starts unaffected
   - Flow: share of time on stretches of 10 min or more. Surface: paved and unpaved mixed by the off-road setting
-    (road: paved), untagged half each way. Variety: 1 − share on ways ridden again after leaving them
+    (road: paved, MTB: unpaved), untagged half each way. Variety: 1 − share on ways ridden again after leaving them
   - Live, 2 h with 3 × 10 min threshold, gravel: the top 3 were within ±10% from all three starts (113–129 min);
     Lobau's best are the flat low-stop loops (flow 0.88–0.96), Hütteldorf's the Wienerwald climbs with few stops;
     loops 30–40% over the time rank last however good their terrain. Variety is near 1 for most loops (GraphHopper's
     round trips rarely repeat roads); surface scores run low with off-road 80 (Vienna has less unpaved than that asks)
   - Unit-tested on synthetic loops; each rule confirmed to fail a test when removed
-- [ ] Top-3 UI with intervals overlaid on the map and the elevation chart
+- [x] Top-3 UI with intervals overlaid on the map and the elevation chart
+  - "Find loops from the start" in the Workout panel (needs a start point; not while marking a flag). `useLoopSearch`
+    runs `findLoops`, ranks and keeps 3. Results close when the start, workout, profile settings, flags or rider
+    change (their times and scores no longer hold); a closed search is aborted and its answer dropped
+  - While loops are on show they replace the route: the sidebar shows a card per loop (match %, distance, time vs the
+    workout, ascent, stops, what stands out from `loops/explain.ts`), and the selected loop's elevation chart with the
+    hard intervals shaded, its surface breakdown, plus Export GPX. The map shows the selected loop in surface colours
+    like a route, with its hard intervals as an outline in zone colours (`loops/placement.ts`, shared with scoring), the
+    others faint; clicking one selects it; the map fits all three. Waypoints and the route are frozen until Close
+  - Unit + component tests; e2e `loops.spec.ts` (stubbed engine: three cards, selection, interval band, map frozen,
+    GPX export, close; results close when the workout changes); each rule confirmed to fail a test when removed.
+    Checked by screenshot against the live engine (Lobau, 1 h with 2 × 10 min tempo: loops within ±2%)
+  - Not covered by tests: selecting a loop by clicking it on the map (needs map coordinates the tests can't reach)
 - [ ] e2e + ±10% time check
 
 ### M4: Getting there and back

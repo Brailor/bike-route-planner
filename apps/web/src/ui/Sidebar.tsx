@@ -1,5 +1,6 @@
 import { usePlanner, type RouteStatus } from '../state/store';
 import { FlagPanel } from './FlagPanel';
+import { LoopPanel } from './LoopPanel';
 import { ProfilePanel } from './ProfilePanel';
 import { RiderPanel } from './RiderPanel';
 import { RouteEnds } from './RouteEnds';
@@ -13,7 +14,7 @@ function StatusMessage({
 }: {
   status: RouteStatus;
   waypointCount: number;
-  /** Map clicks mark a flag right now, so hints about placing waypoints would mislead. */
+  /** Map clicks don't place waypoints right now (marking a flag, or loops on show): their hints would mislead. */
   marking: boolean;
 }) {
   if (status.state === 'error') {
@@ -46,6 +47,7 @@ export function Sidebar() {
   const route = usePlanner((s) => s.route);
   const status = usePlanner((s) => s.status);
   const marking = usePlanner((s) => s.flagDraft !== undefined);
+  const loops = usePlanner((s) => s.loops);
   const clearWaypoints = usePlanner((s) => s.clearWaypoints);
   const undo = usePlanner((s) => s.undo);
   const redo = usePlanner((s) => s.redo);
@@ -86,9 +88,20 @@ export function Sidebar() {
       <ProfilePanel />
       <RiderPanel />
       <WorkoutPanel />
-      <StatusMessage status={status} waypointCount={waypoints.length} marking={marking} />
-      {route && waypoints.length >= 2 && <RouteSummary route={route} />}
-      <FlagPanel route={waypoints.length >= 2 ? route : undefined} />
+      <StatusMessage
+        status={status}
+        waypointCount={waypoints.length}
+        marking={marking || loops !== undefined}
+      />
+      {loops ? (
+        // Loops take the route's place until closed.
+        <LoopPanel loops={loops} />
+      ) : (
+        <>
+          {route && waypoints.length >= 2 && <RouteSummary route={route} />}
+          <FlagPanel route={waypoints.length >= 2 ? route : undefined} />
+        </>
+      )}
     </aside>
   );
 }

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { flagFromSelection, withDetails, type FlagDetails } from '../flags/flag';
 import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
 import type { Place } from '../geocoding/types';
+import type { LoopCandidate } from '../loops/candidates';
+import type { LoopScore } from '../loops/score';
 import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteResult, RoutingError } from '../routing/types';
@@ -22,6 +24,23 @@ export interface FlagDraft {
   points: LonLat[];
   /** The traced stretch for the current points; undefined while tracing or with fewer than two points. */
   trace: RouteResult | undefined;
+  error: string | undefined;
+}
+
+export interface RankedLoop {
+  loop: LoopCandidate;
+  score: LoopScore;
+}
+
+/** Loops for the workout from the start point (README M3). */
+export interface LoopSearch {
+  /** What was asked for. A new object per search: answers to an older one are ignored. */
+  request: { start: LonLat; workout: Workout };
+  status: 'searching' | 'ready' | 'error';
+  /** Best first. */
+  results: RankedLoop[];
+  /** Index into `results`. */
+  selected: number;
   error: string | undefined;
 }
 
@@ -67,6 +86,8 @@ interface PlannerState {
   userSettings: UserSettings;
   /** What the ride should contain: a plain duration or a workout from a file. Undefined when none is set. */
   workout: Workout | undefined;
+  /** Loop suggestions on show; the map and sidebar switch to them until closed. */
+  loops: LoopSearch | undefined;
 
   addWaypoint: (point: LonLat) => void;
   insertWaypoint: (index: number, point: LonLat) => void;
@@ -114,6 +135,13 @@ interface PlannerState {
   /** Applies settings read from storage, keeping any entered before they arrived. */
   loadUserSettings: (saved: UserSettings) => void;
   setWorkout: (workout: Workout | undefined) => void;
+  /** Looks for loops from the start point for the workout. No-op without both. */
+  searchLoops: () => void;
+  /** Stores the answer to `request`; ignored when a newer search (or none) is on show. Brings the loops into view. */
+  setLoopResults: (request: LoopSearch['request'], results: RankedLoop[]) => void;
+  setLoopError: (request: LoopSearch['request'], message: string) => void;
+  selectLoop: (index: number) => void;
+  closeLoops: () => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
   setRouteError: (error: RoutingError) => void;
@@ -162,6 +190,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     mapFocus: undefined,
     userSettings: {},
     workout: undefined,
+    loops: undefined,
 
     addWaypoint: (point) => edit((w) => [...w, point]),
     insertWaypoint: (index, point) => edit((w) => [...w.slice(0, index), point, ...w.slice(index)]),
@@ -281,6 +310,49 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     updateUserSettings: (patch) => set((s) => ({ userSettings: { ...s.userSettings, ...patch } })),
     loadUserSettings: (saved) => set((s) => ({ userSettings: { ...saved, ...s.userSettings } })),
     setWorkout: (workout) => set({ workout }),
+    searchLoops: () =>
+      set((s) => {
+        const [start] = s.waypoints;
+        if (!start || !s.workout) return s;
+        return {
+          loops: {
+            request: { start, workout: s.workout },
+            status: 'searching',
+            results: [],
+            selected: 0,
+            error: undefined,
+          },
+          hoverIndex: undefined,
+        };
+      }),
+    setLoopResults: (request, results) =>
+      set((s) => {
+        if (s.loops?.request !== request) return s;
+        const points = results.flatMap((r) => r.loop.route.geometry.coordinates);
+        const lons = points.map((p) => p[0] ?? 0);
+        const lats = points.map((p) => p[1] ?? 0);
+        const corners: LonLat[] = points.length
+          ? [
+              [Math.min(...lons), Math.min(...lats)],
+              [Math.max(...lons), Math.max(...lats)],
+            ]
+          : [];
+        return {
+          loops: { ...s.loops, status: 'ready', results, selected: 0 },
+          ...(corners.length > 0 && { mapFocus: { points: corners } }),
+        };
+      }),
+    setLoopError: (request, error) =>
+      set((s) =>
+        s.loops?.request === request ? { loops: { ...s.loops, status: 'error', error } } : s,
+      ),
+    selectLoop: (selected) =>
+      set((s) =>
+        s.loops && selected >= 0 && selected < s.loops.results.length
+          ? { loops: { ...s.loops, selected }, hoverIndex: undefined }
+          : s,
+      ),
+    closeLoops: () => set((s) => (s.loops ? { loops: undefined, hoverIndex: undefined } : s)),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>
       // A new route invalidates the selection: its indices point into the old geometry.

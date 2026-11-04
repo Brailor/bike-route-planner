@@ -1,4 +1,5 @@
 import { useFlagTrace } from './flags/useFlagTrace';
+import { useLoopSearch } from './loops/useLoopSearch';
 import { MapView } from './map/MapView';
 import { useRouting } from './routing/useRouting';
 import { useUndoShortcuts } from './state/useUndoShortcuts';
@@ -12,6 +13,7 @@ export function App() {
   useFlagPersistence();
   useSettingsPersistence();
   useFlagTrace();
+  useLoopSearch();
   return (
     <div className="app">
       <MapView />

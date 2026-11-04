@@ -2,12 +2,13 @@
 // ranks where it does; the total is their weighted sum.
 import { usesFlag } from '../flags/avoid';
 import { segmentLengthsM } from '../geo';
+import { offroadPreference } from '../profiles/defaults';
 import { perSegment, surfaceBreakdown } from '../route/surface';
 import { segmentGrades } from '../speed/model';
 import type { AvoidFlag, ProfileSettings, Workout } from '../types';
-import { pctFtp } from '../workouts/workout';
 import type { LoopCandidate } from './candidates';
 import { findClimbs, findStretches, type Climb, type Stretch } from './features';
+import { placeHardIntervals } from './placement';
 
 export interface ScoreContext {
   workout: Workout;
@@ -30,12 +31,13 @@ export interface LoopScore {
   variety: number;
   /** Still uses a flagged section: there was no way around it. */
   usesFlag: boolean;
+  /** A hard interval falls on a descent, where its power can't be held. */
+  intervalOnDescent: boolean;
 }
 
 /** Time is worth nothing this far off (as a share of the target). The goal is within 10% (README M3). */
 const TIME_ZERO_AT = 0.25;
-/** Intervals from tempo up need the road to themselves; from threshold up a climb helps. */
-const HARD_PCT = 76;
+/** From threshold up (% FTP), a climb helps hold the power. */
 const CLIMB_PCT = 91;
 /** Gradients steeper than this down (rise over run) make holding power hard. */
 const DOWNHILL = -0.02;
@@ -44,6 +46,10 @@ const FLOW_MIN_S = 600;
 const WEIGHTS = { time: 0.35, intervals: 0.25, flow: 0.1, surface: 0.1, variety: 0.2 };
 /** Loops over a flag keep this share of their total. */
 const FLAG_PENALTY = 0.5;
+/** A hard interval with more than this share of its time downhill is on a descent: not where to do it. */
+const DESCENT_LIMIT = 0.2;
+/** Loops with an interval on a descent keep this share of their total: only chosen when nothing better exists. */
+const DESCENT_PENALTY = 0.6;
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
@@ -54,32 +60,31 @@ export function timeScore(predictedS: number, targetS: number): number {
   return clamp01(1 - Math.abs(predictedS / targetS - 1) / TIME_ZERO_AT);
 }
 
+type Features = { stretches: Stretch[]; climbs: Climb[]; grades: number[] };
+
+interface IntervalFit {
+  /** On the loop (s). */
+  length: number;
+  /** 0–1: without stops, not downhill, and (threshold and up) on a climb. */
+  fit: number;
+  /** Share of the interval's time going downhill. */
+  downhill: number;
+}
+
 /**
- * How well the hard intervals fit where they fall on the loop, weighted by their length; undefined without any. The
- * workout is stretched to the loop's predicted time, so each interval maps to a share of the loop.
+ * How each hard interval fits where it falls on the loop. The workout is stretched to the loop's predicted time, so
+ * each interval maps to a share of the loop.
  */
-export function intervalScore(
+function intervalFits(
   loop: LoopCandidate,
   { workout, ftpW }: Pick<ScoreContext, 'workout' | 'ftpW'>,
-  features: { stretches: Stretch[]; climbs: Climb[]; grades: number[] },
-): number | undefined {
-  const hard = workout.intervals.flatMap((interval) => {
-    const pct = interval.power && pctFtp(interval.power, ftpW);
-    return pct !== undefined && pct >= HARD_PCT ? [{ ...interval, pct }] : [];
-  });
-  if (hard.length === 0 || workout.totalDurationS <= 0) return undefined;
-
+  features: Features,
+): IntervalFit[] {
   const { timesS } = loop.ride;
-  const scale = loop.ride.durationS / workout.totalDurationS;
   const onClimb = (segment: number) =>
     features.climbs.some((c) => c.from <= segment && segment < c.to);
-  let weighted = 0;
-  let total = 0;
-  for (const interval of hard) {
-    const t0 = interval.startS * scale;
-    const t1 = (interval.startS + interval.durationS) * scale;
+  return placeHardIntervals(workout, loop.ride, ftpW).map(({ startS: t0, endS: t1, pct }) => {
     const length = t1 - t0;
-    if (length <= 0) continue;
     let downhill = 0;
     let climbing = 0;
     for (let i = 0; i + 1 < timesS.length; i++) {
@@ -94,11 +99,25 @@ export function intervalScore(
       ...features.stretches.map((s) => overlap(t0, t1, timesS[s.from] ?? 0, timesS[s.to] ?? 0)),
     );
     let fit = (stopFree / length) * (1 - downhill / length);
-    if (interval.pct >= CLIMB_PCT) fit *= 0.7 + 0.3 * (climbing / length);
-    weighted += fit * interval.durationS;
-    total += interval.durationS;
-  }
-  return total > 0 ? clamp01(weighted / total) : undefined;
+    if (pct >= CLIMB_PCT) fit *= 0.7 + 0.3 * (climbing / length);
+    return { length, fit, downhill: downhill / length };
+  });
+}
+
+const weightedFit = (fits: readonly IntervalFit[]) => {
+  const total = fits.reduce((sum, f) => sum + f.length, 0);
+  return total > 0
+    ? clamp01(fits.reduce((sum, f) => sum + f.fit * f.length, 0) / total)
+    : undefined;
+};
+
+/** How well the hard intervals fit, weighted by their length; undefined without any. */
+export function intervalScore(
+  loop: LoopCandidate,
+  context: Pick<ScoreContext, 'workout' | 'ftpW'>,
+  features: Features,
+): number | undefined {
+  return weightedFit(intervalFits(loop, context, features));
 }
 
 /** Share of the ride's time on stretches of at least `FLOW_MIN_S`. */
@@ -111,8 +130,8 @@ export function flowScore(stretches: readonly Stretch[], durationS: number): num
 }
 
 /**
- * Share of the loop on the preferred surface. Road: paved. Gravel and MTB: unpaved and paved mixed by the off-road
- * setting (0–100). Untagged surfaces count half each way.
+ * Share of the loop on the preferred surface. Road: paved. MTB: unpaved. Gravel: unpaved and paved mixed by the
+ * off-road setting (0–100). Untagged surfaces count half each way.
  */
 export function surfaceScore(loop: LoopCandidate, settings: ProfileSettings): number {
   const b = surfaceBreakdown(loop.route);
@@ -120,7 +139,7 @@ export function surfaceScore(loop: LoopCandidate, settings: ProfileSettings): nu
   if (total <= 0) return 0;
   const paved = b.paved.meters + b.unknown.meters / 2;
   const unpaved = b.gravel.meters + b.ground.meters + b.unknown.meters / 2;
-  const offroad = settings.profile === 'road' ? 0 : (settings.offroadPreference ?? 50) / 100;
+  const offroad = (offroadPreference(settings) ?? 0) / 100;
   return clamp01((offroad * unpaved + (1 - offroad) * paved) / total);
 }
 
@@ -149,7 +168,9 @@ export function scoreLoop(loop: LoopCandidate, context: ScoreContext): LoopScore
   const grades = segmentGrades(coords);
 
   const time = timeScore(loop.ride.durationS, context.workout.totalDurationS);
-  const intervals = intervalScore(loop, context, { stretches, climbs, grades });
+  const fits = intervalFits(loop, context, { stretches, climbs, grades });
+  const intervals = weightedFit(fits);
+  const onDescent = fits.some((f) => f.downhill > DESCENT_LIMIT);
   const flow = flowScore(stretches, loop.ride.durationS);
   const surface = surfaceScore(loop, context.settings);
   const variety = varietyScore(loop);
@@ -164,13 +185,14 @@ export function scoreLoop(loop: LoopCandidate, context: ScoreContext): LoopScore
     WEIGHTS.surface * surface +
     WEIGHTS.variety * variety;
   return {
-    total: sum * (flagged ? FLAG_PENALTY : 1),
+    total: sum * (flagged ? FLAG_PENALTY : 1) * (onDescent ? DESCENT_PENALTY : 1),
     time,
     intervals,
     flow,
     surface,
     variety,
     usesFlag: flagged,
+    intervalOnDescent: onDescent,
   };
 }
 

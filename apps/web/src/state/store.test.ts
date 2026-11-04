@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { fixtureRoute } from '../test/route';
-import { usePlanner } from './store';
+import { durationWorkout } from '../workouts/workout';
+import { usePlanner, type RankedLoop } from './store';
 
 const initial = usePlanner.getState();
 const state = () => usePlanner.getState();
@@ -354,5 +355,82 @@ describe('rider settings', () => {
     state().updateUserSettings({ weightKg: 70 });
     state().loadUserSettings({ ftpW: 280, weightKg: 82 });
     expect(state().userSettings).toEqual({ ftpW: 280, weightKg: 70 });
+  });
+});
+
+describe('loop search', () => {
+  const ranked = (route = fixtureRoute): RankedLoop => ({
+    loop: { source: 'round_trip', route, ride: { durationS: 600, timesS: [] } },
+    score: {
+      total: 0.8,
+      time: 1,
+      intervals: undefined,
+      flow: 1,
+      surface: 1,
+      variety: 1,
+      usesFlag: false,
+      intervalOnDescent: false,
+    },
+  });
+  const ready = () => {
+    state().addWaypoint([16.56, 48.2]);
+    state().setWorkout(durationWorkout('1 h ride', 3600));
+    state().searchLoops();
+    return state().loops!.request;
+  };
+
+  it('needs a start point and a workout', () => {
+    state().searchLoops();
+    expect(state().loops).toBeUndefined();
+    state().setWorkout(durationWorkout('1 h ride', 3600));
+    state().searchLoops();
+    expect(state().loops).toBeUndefined();
+    state().setWorkout(undefined);
+    state().addWaypoint([16.56, 48.2]);
+    state().searchLoops();
+    expect(state().loops).toBeUndefined();
+    state().setWorkout(durationWorkout('1 h ride', 3600));
+    state().searchLoops();
+    expect(state().loops).toMatchObject({ status: 'searching', request: { start: [16.56, 48.2] } });
+  });
+
+  it('stores results for the current search, selects the best and brings them into view', () => {
+    const request = ready();
+    state().setLoopResults(request, [ranked(), ranked()]);
+    expect(state().loops).toMatchObject({ status: 'ready', selected: 0 });
+    const coords = fixtureRoute.geometry.coordinates;
+    const lons = coords.map((c) => c[0]!);
+    expect(state().mapFocus?.points[0]![0]).toBe(Math.min(...lons));
+    expect(state().mapFocus?.points[1]![0]).toBe(Math.max(...lons));
+  });
+
+  it('ignores answers to an older search, and after closing', () => {
+    const old = ready();
+    state().searchLoops();
+    state().setLoopResults(old, [ranked()]);
+    state().setLoopError(old, 'late');
+    expect(state().loops).toMatchObject({ status: 'searching', results: [] });
+    const current = state().loops!.request;
+    state().closeLoops();
+    state().setLoopResults(current, [ranked()]);
+    expect(state().loops).toBeUndefined();
+  });
+
+  it('records an error', () => {
+    const request = ready();
+    state().setLoopError(request, 'No loops');
+    expect(state().loops).toMatchObject({ status: 'error', error: 'No loops' });
+  });
+
+  it('selects among the results only', () => {
+    const request = ready();
+    state().setLoopResults(request, [ranked(), ranked()]);
+    state().setHoverIndex(3);
+    state().selectLoop(1);
+    expect(state().loops?.selected).toBe(1);
+    expect(state().hoverIndex).toBeUndefined(); // it pointed into the other loop
+    state().selectLoop(2);
+    state().selectLoop(-1);
+    expect(state().loops?.selected).toBe(1);
   });
 });

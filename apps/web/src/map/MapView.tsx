@@ -16,10 +16,13 @@ import {
 } from 'react-map-gl/maplibre';
 import { selectionGeometry, type FlagHandle } from '../flags/selection';
 import { distanceM } from '../geo';
+import { placeHardIntervals } from '../loops/placement';
+import { riderValue } from '../speed/rider';
 import { inSupportedRegion } from '../region';
 import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
+import { ZONE_COLORS } from '../ui/zoneColors';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
 import { currentPosition } from './locate';
 import { focusPadding, INITIAL_VIEW } from './view';
@@ -31,6 +34,12 @@ const ROUTE_HIT_LAYER = 'route-hit';
 
 /** Wide invisible line over the flags, so a flag is easy to click open. */
 const FLAGS_HIT_LAYER = 'flags-hit';
+
+/** Wide invisible lines over suggested loops, so one is easy to click and select. */
+const LOOPS_HIT_LAYER = 'loops-hit';
+
+/** Loops other than the selected one, which is drawn in surface colours like a route. */
+const OTHER_LOOP_COLOR = '#7b8794';
 
 /** Half the waypoint marker's size incl. border (see .waypoint in index.css). */
 const MARKER_RADIUS_PX = 14;
@@ -86,6 +95,8 @@ export function MapView() {
   const flags = usePlanner((s) => s.flags);
   const flagsVisible = usePlanner((s) => s.flagsVisible);
   const editingFlagId = usePlanner((s) => s.editingFlagId);
+  const loops = usePlanner((s) => s.loops);
+  const ftpW = usePlanner((s) => riderValue(s.userSettings, 'ftpW'));
   const {
     addWaypoint,
     insertWaypoint,
@@ -97,16 +108,56 @@ export function MapView() {
     editFlag,
     addDraftPoint,
     moveDraftPoint,
+    selectLoop,
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
-  const runs = useMemo(() => (route ? surfaceRuns(route) : EMPTY), [route]);
+  // While loops are on show, they replace the route: it's hidden and the map is frozen apart from picking a loop.
+  const showingLoops = loops !== undefined;
+  const runs = useMemo(
+    () => (route && !showingLoops ? surfaceRuns(route) : EMPTY),
+    [route, showingLoops],
+  );
   const coordinates = route?.geometry.coordinates;
-  const hovered = hoverIndex === undefined ? undefined : coordinates?.[hoverIndex];
+  const selectedLoop = loops?.results[loops.selected];
+  // The hover index points into whatever line the elevation chart shows: the selected loop, or the route.
+  const hoverLine = showingLoops ? selectedLoop?.loop.route.geometry.coordinates : coordinates;
+  const hovered = hoverIndex === undefined ? undefined : hoverLine?.[hoverIndex];
+  const loopLines = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: (loops?.results ?? []).map((r, rank) => ({
+        type: 'Feature',
+        properties: { rank, selected: rank === loops?.selected },
+        geometry: r.loop.route.geometry,
+      })),
+    }),
+    [loops],
+  );
+  const loopSurface = useMemo(
+    () => (selectedLoop ? surfaceRuns(selectedLoop.loop.route) : EMPTY),
+    [selectedLoop],
+  );
+  const loopIntervals = useMemo<FeatureCollection>(() => {
+    if (!loops || !selectedLoop) return EMPTY;
+    const coords = selectedLoop.loop.route.geometry.coordinates;
+    return {
+      type: 'FeatureCollection',
+      features: placeHardIntervals(loops.request.workout, selectedLoop.loop.ride, ftpW).map(
+        (p) => ({
+          type: 'Feature',
+          properties: { color: ZONE_COLORS[p.zone] },
+          geometry: { type: 'LineString', coordinates: coords.slice(p.from, p.to + 1) },
+        }),
+      ),
+    };
+  }, [loops, selectedLoop, ftpW]);
   // While a flag is being picked on the route or marked on the map, the route and its waypoints are frozen: a
   // selection indexes into this route, and map clicks belong to the flag.
   const drafting = flagDraft !== undefined;
   const flagging = flagSelection !== undefined || drafting;
+  /** Waypoints and the route can't be changed: a flag is being picked, or loops are on show. */
+  const frozen = flagging || showingLoops;
   const flagsLayer = flagsVisible ? 'visible' : 'none';
   const flagged = useMemo<FeatureCollection>(
     () => ({
@@ -134,6 +185,7 @@ export function MapView() {
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
   const [overFlag, setOverFlag] = useState(false);
+  const [overLoop, setOverLoop] = useState(false);
   const [userLocation, setUserLocation] = useState<LonLat>();
   /** Set once the map moves (a pan, a zoom, a search result); after that, a late location fix must not move it. */
   const moved = useRef(false);
@@ -188,6 +240,11 @@ export function MapView() {
       if (!markerClicks.has(e.originalEvent)) addDraftPoint(toLonLat(e));
       return;
     }
+    if (showingLoops) {
+      const loop = featureOn(e, LOOPS_HIT_LAYER);
+      if (loop) selectLoop(Number(loop.properties.rank));
+      return;
+    }
     if (flagging || onMarker(e)) return;
     // A flag wins over the route beneath it: clicking it opens it in the panel.
     const flag = featureOn(e, FLAGS_HIT_LAYER);
@@ -200,7 +257,7 @@ export function MapView() {
   }
 
   function handleMouseDown(e: MapLayerMouseEvent) {
-    if (flagging || !coordinates || !onRouteFeature(e) || onMarker(e)) return;
+    if (frozen || !coordinates || !onRouteFeature(e) || onMarker(e)) return;
     e.preventDefault(); // stops the map from panning while a waypoint is dragged out of the line
     const point = toLonLat(e);
     setLineDrag({ from: point, to: point, routeIndex: nearestIndex(coordinates, point) });
@@ -214,6 +271,7 @@ export function MapView() {
     const over = Boolean(coordinates) && onRouteFeature(e);
     setOverRoute(over);
     setOverFlag(Boolean(featureOn(e, FLAGS_HIT_LAYER)));
+    setOverLoop(Boolean(featureOn(e, LOOPS_HIT_LAYER)));
     setHoverIndex(over && coordinates ? nearestIndex(coordinates, toLonLat(e)) : undefined);
   }
 
@@ -245,21 +303,26 @@ export function MapView() {
       // Expanded (not compact) so the OpenStreetMap attribution required by ODbL is always visible.
       attributionControl={{ compact: false }}
       interactiveLayerIds={[
-        ...(coordinates ? [ROUTE_HIT_LAYER] : []),
-        ...(flagsVisible && !flagging ? [FLAGS_HIT_LAYER] : []),
+        ...(coordinates && !showingLoops ? [ROUTE_HIT_LAYER] : []),
+        ...(flagsVisible && !frozen ? [FLAGS_HIT_LAYER] : []),
+        ...(showingLoops ? [LOOPS_HIT_LAYER] : []),
       ]}
       cursor={
         lineDrag
           ? 'grabbing'
           : drafting
             ? 'crosshair'
-            : flagging
-              ? 'default'
-              : overRoute
-                ? 'grab'
-                : overFlag
-                  ? 'pointer'
-                  : 'crosshair'
+            : showingLoops
+              ? overLoop
+                ? 'pointer'
+                : 'default'
+              : flagging
+                ? 'default'
+                : overRoute
+                  ? 'grab'
+                  : overFlag
+                    ? 'pointer'
+                    : 'crosshair'
       }
       onLoad={handleLoad}
       onMoveStart={() => (moved.current = true)}
@@ -299,6 +362,56 @@ export function MapView() {
           id={ROUTE_HIT_LAYER}
           type="line"
           paint={{ 'line-color': '#000000', 'line-opacity': 0, 'line-width': 18 }}
+        />
+      </Source>
+
+      {/*
+        Suggested loops: the others faint; the selected one in surface colours like a route, its hard intervals as an
+        outline in zone colours beneath (so the two colour schemes don't mix).
+      */}
+      <Source id="loops" type="geojson" data={loopLines}>
+        <Layer
+          id="loops-others"
+          type="line"
+          filter={['==', ['get', 'selected'], false]}
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': OTHER_LOOP_COLOR, 'line-width': 4, 'line-opacity': 0.7 }}
+        />
+        <Layer
+          id="loops-casing"
+          type="line"
+          filter={['==', ['get', 'selected'], true]}
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': '#ffffff', 'line-width': 9 }}
+        />
+        <Layer
+          id={LOOPS_HIT_LAYER}
+          type="line"
+          paint={{ 'line-color': '#000000', 'line-opacity': 0, 'line-width': 16 }}
+        />
+      </Source>
+      <Source id="loop-intervals" type="geojson" data={loopIntervals}>
+        <Layer
+          id="loop-intervals"
+          type="line"
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': ['get', 'color'], 'line-width': 13 }}
+        />
+      </Source>
+      <Source id="loop-surface" type="geojson" data={loopSurface}>
+        <Layer
+          id="loop-surface"
+          type="line"
+          filter={['==', ['get', 'inferred'], false]}
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': surfaceColor, 'line-width': 5 }}
+        />
+        <Layer
+          id="loop-surface-inferred"
+          type="line"
+          filter={['==', ['get', 'inferred'], true]}
+          layout={{ 'line-join': 'round' }}
+          paint={{ 'line-color': surfaceColor, 'line-width': 5, 'line-dasharray': [1.2, 0.8] }}
         />
       </Source>
 
@@ -401,11 +514,11 @@ export function MapView() {
             key={i}
             longitude={lon}
             latitude={lat}
-            draggable={!flagging}
+            draggable={!frozen}
             onDragEnd={(e: MarkerDragEvent) => moveWaypoint(i, toLonLat(e))}
             onClick={(e) => {
               markerClicks.add(e.originalEvent);
-              if (!flagging) removeWaypoint(i);
+              if (!frozen) removeWaypoint(i);
             }}
           >
             <div

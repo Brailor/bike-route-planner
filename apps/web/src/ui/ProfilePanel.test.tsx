@@ -20,11 +20,14 @@ describe('ProfilePanel', () => {
     expect(screen.getByRole('button', { name: 'MTB' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the off-road slider for gravel/MTB only', async () => {
+  it('shows the off-road slider for gravel only; MTB is always fully off-road', async () => {
     render(<ProfilePanel />);
     expect(screen.getByRole('slider')).toHaveValue('80');
     await userEvent.click(screen.getByRole('button', { name: 'Road' }));
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'MTB' }));
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(screen.getByText('MTB routes always go as off-road as they can.')).toBeInTheDocument();
   });
 
   it('updates the off-road preference of the active profile only', () => {
@@ -32,7 +35,7 @@ describe('ProfilePanel', () => {
     fireEvent.change(screen.getByRole('slider'), { target: { value: '35' } });
     expect(settings().offroadPreference).toBe(35);
     expect(screen.getByText('35')).toBeInTheDocument();
-    expect(usePlanner.getState().settingsByProfile.mtb.offroadPreference).toBe(60);
+    expect(usePlanner.getState().settingsByProfile.road.offroadPreference).toBeUndefined();
   });
 
   it('toggles avoid main roads', async () => {

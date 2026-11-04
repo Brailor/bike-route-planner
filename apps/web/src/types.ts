@@ -7,7 +7,7 @@ export type Profile = 'road' | 'gravel' | 'mtb';
 
 export interface ProfileSettings {
   profile: Profile;
-  /** 0..100, gravel/MTB only. 50 is the profile's own balance; higher prefers unpaved, lower prefers paved. */
+  /** 0..100, gravel only (MTB is always 100). 50 is the profile's own balance; higher prefers unpaved, lower paved. */
   offroadPreference?: number;
   avoidMainRoads?: boolean;
 }

@@ -1,4 +1,5 @@
 import { useMemo, type PointerEvent } from 'react';
+import { segmentLengthsM } from '../geo';
 import { elevationProfile, pointAtDistance } from '../route/elevation';
 import { usePlanner } from '../state/store';
 import { formatDistance, formatElevation } from './format';
@@ -9,7 +10,21 @@ const PAD = { top: 10, right: 6, bottom: 18, left: 34 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
-export function ElevationChart({ coordinates }: { coordinates: number[][] }) {
+/** A shaded stretch of the chart, such as a workout interval: coordinate indices [from, to]. */
+export interface ChartBand {
+  from: number;
+  to: number;
+  color: string;
+  label: string;
+}
+
+export function ElevationChart({
+  coordinates,
+  bands = [],
+}: {
+  coordinates: number[][];
+  bands?: readonly ChartBand[];
+}) {
   const hoverIndex = usePlanner((s) => s.hoverIndex);
   const setHoverIndex = usePlanner((s) => s.setHoverIndex);
 
@@ -28,7 +43,19 @@ export function ElevationChart({ coordinates }: { coordinates: number[][] }) {
     const line = profile.map((p) => `${x(p.distanceM).toFixed(1)},${y(p.elevationM).toFixed(1)}`);
     const base = PAD.top + PLOT_H;
     const area = `M${x(0)},${base} L${line.join(' L')} L${x(last.distanceM)},${base} Z`;
-    return { profile, min, max, total: last.distanceM, x, y, area, line: `M${line.join(' L')}` };
+    const along = [0];
+    for (const l of segmentLengthsM(coordinates)) along.push((along.at(-1) ?? 0) + l);
+    return {
+      profile,
+      along,
+      min,
+      max,
+      total: last.distanceM,
+      x,
+      y,
+      area,
+      line: `M${line.join(' L')}`,
+    };
   }, [coordinates]);
 
   if (!chart) return null;
@@ -54,6 +81,24 @@ export function ElevationChart({ coordinates }: { coordinates: number[][] }) {
         onPointerMove={handlePointerMove}
         onPointerLeave={() => setHoverIndex(undefined)}
       >
+        {bands.map((band, i) => {
+          const x0 = chart.x(chart.along[band.from] ?? 0);
+          const x1 = chart.x(chart.along[band.to] ?? chart.total);
+          return (
+            <rect
+              key={i}
+              x={x0}
+              width={Math.max(1, x1 - x0)}
+              y={PAD.top}
+              height={PLOT_H}
+              fill={band.color}
+              className="elevation__band"
+              data-testid="elevation-band"
+            >
+              <title>{band.label}</title>
+            </rect>
+          );
+        })}
         <path d={chart.area} className="elevation__area" />
         <path d={chart.line} className="elevation__line" />
         <text

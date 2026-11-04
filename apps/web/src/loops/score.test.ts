@@ -192,7 +192,8 @@ describe('surfaceScore', () => {
     expect(surfaceScore(loop({ surface: half('gravel') }), GRAVEL)).toBeCloseTo(0.5);
     expect(surfaceScore(loop(), GRAVEL)).toBeCloseTo(0.2);
     const allGravel = loop({ surface: [{ from: 0, to: 180, value: 'gravel' }] });
-    expect(surfaceScore(allGravel, { profile: 'mtb', offroadPreference: 100 })).toBeCloseTo(1);
+    expect(surfaceScore(allGravel, { profile: 'mtb' })).toBeCloseTo(1);
+    expect(surfaceScore(loop(), { profile: 'mtb', offroadPreference: 0 })).toBeCloseTo(0); // MTB ignores the setting
   });
 
   it('counts untagged surfaces half each way', () => {
@@ -245,6 +246,33 @@ describe('scoreLoop', () => {
     const score = scoreLoop(loop(), context({ workout: workoutWith({ pctFtp: 100 }) }));
     expect(score.intervals).toBeCloseTo(0.7);
     expect(score.total).toBeCloseTo(1 - 0.25 * 0.3);
+  });
+
+  it('marks down loops that put a hard interval on a descent', () => {
+    // The interval (minutes 10–20) half on a −5% descent, then a loop where only 15% of it is.
+    const halfDown = loop({ elevations: slopeAt(at(10), at(15), -0.05) });
+    const workout = workoutWith({ pctFtp: 85 });
+    const down = scoreLoop(halfDown, context({ workout }));
+    expect(down.intervalOnDescent).toBe(true);
+    const withoutPenalty =
+      0.35 + 0.25 * down.intervals! + 0.1 * down.flow + 0.1 * down.surface + 0.2;
+    expect(down.total).toBeCloseTo(withoutPenalty * 0.6);
+
+    const briefly = loop({ elevations: slopeAt(at(10), at(11.5), -0.05) });
+    expect(scoreLoop(briefly, context({ workout })).intervalOnDescent).toBe(false);
+    // Descents outside the hard intervals don't matter.
+    const elsewhere = loop({ elevations: slopeAt(at(30), at(40), -0.05) });
+    expect(scoreLoop(elsewhere, context({ workout })).intervalOnDescent).toBe(false);
+  });
+
+  it('ranks an interval on a climb or the flat above one on a descent', () => {
+    const workout = workoutWith({ pctFtp: 100 });
+    const ctx = context({ workout });
+    const climb = scoreLoop(loop({ elevations: slopeAt(at(10), at(20)) }), ctx).total;
+    const flat = scoreLoop(loop(), ctx).total;
+    const descent = scoreLoop(loop({ elevations: slopeAt(at(10), at(20), -0.06) }), ctx).total;
+    expect(climb).toBeGreaterThan(flat);
+    expect(flat).toBeGreaterThan(descent);
   });
 
   it('halves loops that still use a flag', () => {

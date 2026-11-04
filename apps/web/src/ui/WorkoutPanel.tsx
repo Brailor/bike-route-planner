@@ -10,6 +10,12 @@ import { WorkoutProfile } from './WorkoutProfile';
 export function WorkoutPanel() {
   const workout = usePlanner((s) => s.workout);
   const settings = usePlanner((s) => s.userSettings);
+  const hasStart = usePlanner((s) => s.waypoints.length > 0);
+  // Loops can't be looked for while a flag is being marked, or while a search is running.
+  const busy = usePlanner(
+    (s) =>
+      s.flagSelection !== undefined || s.flagDraft !== undefined || s.loops?.status === 'searching',
+  );
   const { setWorkout } = usePlanner.getState();
   const [duration, setDuration] = useState('');
   const [error, setError] = useState<string>();
@@ -61,6 +67,17 @@ export function WorkoutPanel() {
               <li key={w}>{w}</li>
             ))}
           </ul>
+        )}
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={!hasStart || busy}
+          onClick={() => usePlanner.getState().searchLoops()}
+        >
+          Find loops from the start
+        </button>
+        {!hasStart && (
+          <p className="hint">Set a start point to find loops that fit this workout.</p>
         )}
       </section>
     );
