@@ -4,14 +4,17 @@ import roundTripFixture from '../routing/graphhopper/__fixtures__/gravel-round-t
 import { mapRouteResponse, type GhRouteResponse } from '../routing/graphhopper/response';
 import {
   RoutingError,
+  type RouteRequest,
   type RoundTripRequest,
   type RouteResult,
   type RoutingEngine,
 } from '../routing/types';
-import { cruiseSpeedMs } from '../speed/model';
+import { cruiseSpeedMs, predictRide } from '../speed/model';
+import { riderFrom } from '../speed/rider';
 import { usePlanner } from '../state/store';
 import type { AvoidFlag } from '../types';
 import { durationWorkout } from '../workouts/workout';
+import { isClockwise, REVERSE_VIAS } from './direction';
 import { useLoopSearch } from './useLoopSearch';
 
 const loopRoute = mapRouteResponse(roundTripFixture.response as unknown as GhRouteResponse);
@@ -152,5 +155,85 @@ describe('useLoopSearch', () => {
     release();
     await new Promise((r) => setTimeout(r, 0));
     expect(state().loops).toBeUndefined();
+  });
+
+  describe('riding a loop the other way', () => {
+    /** The recorded loop backwards, as the engine would route it the other way round. */
+    const backwards = (): RouteResult => ({
+      ...distinct(),
+      geometry: { type: 'LineString', coordinates: [...loopRoute.geometry.coordinates].reverse() },
+    });
+
+    async function searched(engine: RoutingEngine) {
+      ready();
+      renderHook(() => useLoopSearch(engine));
+      act(() => state().searchLoops());
+      await waitFor(() => expect(state().loops?.status).toBe('ready'));
+    }
+
+    it('routes back through points along the loop, then times and scores it', async () => {
+      const { engine } = fakeEngine();
+      const routes: RouteRequest[] = [];
+      await searched({
+        ...engine,
+        route: (r, s) => {
+          routes.push(r);
+          return r.passThrough ? Promise.resolve(backwards()) : engine.route(r, s);
+        },
+      });
+      const before = state().loops!.results[1]!;
+      act(() => state().reverseLoop(1));
+      await waitFor(() => expect(state().loops?.reversing).toBeUndefined());
+
+      const request = routes.find((r) => r.passThrough)!;
+      expect(request.waypoints).toHaveLength(REVERSE_VIAS + 2);
+      expect(request.waypoints[0]).toEqual(request.waypoints.at(-1));
+      expect(isClockwise(request.waypoints)).toBe(
+        !isClockwise(before.loop.route.geometry.coordinates),
+      );
+      expect(request.settings).toEqual(state().settingsByProfile.gravel);
+
+      const after = state().loops!.results[1]!;
+      expect(after.loop.route.geometry.coordinates[1]).toEqual(
+        loopRoute.geometry.coordinates.at(-2),
+      );
+      // Timed afresh: its climbs are now descents.
+      expect(after.loop.ride).toEqual(
+        predictRide(after.loop.route, 'gravel', riderFrom(state().userSettings)),
+      );
+      expect(after.score.total).toBeGreaterThan(0);
+      expect(after.other?.loop).toBe(before.loop);
+    });
+
+    it('explains when the loop can’t be ridden the other way', async () => {
+      const { engine } = fakeEngine();
+      await searched({
+        ...engine,
+        route: (r, s) =>
+          r.passThrough ? Promise.reject(new RoutingError('x', 'no_route')) : engine.route(r, s),
+      });
+      act(() => state().reverseLoop(0));
+      await waitFor(() =>
+        expect(state().loops?.reverseError).toBe('This loop can’t be ridden the other way.'),
+      );
+      expect(state().loops?.reversing).toBeUndefined();
+    });
+
+    it('aborts when the loops close', async () => {
+      const { engine } = fakeEngine();
+      const signals: (AbortSignal | undefined)[] = [];
+      await searched({
+        ...engine,
+        route: (r, s) => {
+          if (!r.passThrough) return engine.route(r, s);
+          signals.push(s);
+          return new Promise(() => {});
+        },
+      });
+      act(() => state().reverseLoop(0));
+      await waitFor(() => expect(signals).toHaveLength(1));
+      act(() => state().closeLoops());
+      expect(signals[0]?.aborted).toBe(true);
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { downloadGpx } from '../gpx/download';
+import { isClockwise } from '../loops/direction';
 import { loopHighlights } from '../loops/explain';
 import { findStops } from '../loops/features';
 import { placeHardIntervals } from '../loops/placement';
@@ -85,8 +86,31 @@ function SelectedLoop({ loops }: { loops: LoopSearch }) {
   if (!ranked || !breakdown) return null;
   const { route } = ranked.loop;
   const name = `${workout.name} loop ${formatDistance(route.distanceM)}`;
+  const clockwise = isClockwise(route.geometry.coordinates);
+  const busy = loops.reversing !== undefined;
+  const ride = (wantClockwise: boolean) => {
+    if (wantClockwise !== clockwise) usePlanner.getState().reverseLoop(loops.selected);
+  };
   return (
     <div className="loops__selected">
+      <div className="segmented" role="group" aria-label="Direction">
+        <button type="button" aria-pressed={clockwise} disabled={busy} onClick={() => ride(true)}>
+          ↻ Clockwise
+        </button>
+        <button type="button" aria-pressed={!clockwise} disabled={busy} onClick={() => ride(false)}>
+          ↺ Anticlockwise
+        </button>
+      </div>
+      {loops.reversing === loops.selected && (
+        <p className="status" role="status">
+          Finding this loop the other way round…
+        </p>
+      )}
+      {loops.reverseError && (
+        <p className="status status--error" role="alert">
+          {loops.reverseError}
+        </p>
+      )}
       <SurfaceBar breakdown={breakdown} />
       <ElevationChart coordinates={route.geometry.coordinates} bands={bands} />
       {bands.length > 0 && (

@@ -1,18 +1,35 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fixture, openMap, stubRouting } from './support';
 
-type Path = { details: { osm_way_id?: [number, number, number | null][] } };
+type Path = {
+  points: { coordinates: number[][] };
+  details: { osm_way_id?: [number, number, number | null][] };
+};
 
 const roundTrip = fixture('gravel-round-trip').response as unknown as { paths: Path[] };
 
-/** Every loop request gets the recorded loop, on new way IDs each time, so no two count as the same loop. */
+/**
+ * Every loop request gets the recorded loop, on new way IDs each time, so no two count as the same loop. Asked to ride
+ * one the other way (through its points, passing through), the engine gives the recorded loop backwards.
+ */
 async function stubLoops(page: Page) {
   let n = 0;
-  return stubRouting(page, () => {
+  return stubRouting(page, (body) => {
     n++;
     const [path] = roundTrip.paths;
     const ways = path!.details.osm_way_id!.map(([from, to, id]) => [from, to, n * 1e9 + (id ?? 0)]);
-    return { paths: [{ ...path, details: { ...path!.details, osm_way_id: ways } }] };
+    const coordinates = (body as { pass_through?: boolean }).pass_through
+      ? [...path!.points.coordinates].reverse()
+      : path!.points.coordinates;
+    return {
+      paths: [
+        {
+          ...path,
+          points: { ...path!.points, coordinates },
+          details: { ...path!.details, osm_way_id: ways },
+        },
+      ],
+    };
   });
 }
 
@@ -45,6 +62,18 @@ test('find loops for a workout, compare them, export one, close', async ({ page 
 
   await cards.nth(1).click();
   await expect(cards.nth(1)).toHaveAttribute('aria-pressed', 'true');
+
+  // Ride it the other way: the engine is asked to pass through points along it, and the switch flips.
+  const direction = page.getByRole('group', { name: 'Direction' });
+  const before = (await direction.getByRole('button', { pressed: true }).textContent()) ?? '';
+  await direction.getByRole('button', { pressed: false }).click();
+  await expect(direction.getByRole('button', { pressed: true })).not.toHaveText(before);
+  expect(requests.some((r) => (r as { pass_through?: boolean }).pass_through)).toBe(true);
+  // And back, without asking the engine again.
+  const asked = requests.length;
+  await direction.getByRole('button', { pressed: false }).click();
+  await expect(direction.getByRole('button', { pressed: true })).toHaveText(before);
+  expect(requests).toHaveLength(asked);
 
   // The map is for picking loops now: a click elsewhere places no waypoint.
   await page.mouse.click(400, 600);

@@ -13,6 +13,7 @@ export interface GhRouteRequestBody {
   instructions: false;
   details: readonly string[];
   custom_model?: CustomModel;
+  pass_through?: boolean;
   algorithm?: 'round_trip';
   'round_trip.distance'?: number;
   'round_trip.seed'?: number;
@@ -42,6 +43,7 @@ export function buildRouteRequestBody({
   waypoints,
   settings,
   flags,
+  passThrough,
 }: RouteRequest): GhRouteRequestBody {
   const customModel = buildCustomModel(settings, flags);
   return {
@@ -52,6 +54,7 @@ export function buildRouteRequestBody({
     instructions: false,
     details: DETAILS,
     ...(customModel && { custom_model: customModel }),
+    ...(passThrough && { pass_through: true }),
   };
 }
 

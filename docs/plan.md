@@ -370,7 +370,27 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     GPX export, close; results close when the workout changes); each rule confirmed to fail a test when removed.
     Checked by screenshot against the live engine (Lobau, 1 h with 2 × 10 min tempo: loops within ±2%)
   - Not covered by tests: selecting a loop by clicking it on the map (needs map coordinates the tests can't reach)
+- [x] Direction arrows, and riding a loop either way (user's request, 2026-11-04)
+  - Chevrons along the route (start → destination) and the selected loop (its riding direction): a symbol layer
+    with a chevron drawn as pixels (`map/arrow.ts`), added when the map loads
+  - "Clockwise / Anticlockwise" on the selected loop (`loops/direction.ts`). Reversing the line would ride one-ways
+    the wrong way, so the engine routes back through 12 points along the loop, with `pass_through` so it doesn't turn
+    back at them. Live (18 loops): 0.94–1.04 × the length, median 1.00, 76% of the same ways; 4 points cut corners
+    (median 0.88), 20 began to add detours (up to 1.14). The reversed loop is timed and scored afresh (its climbs are
+    now descents) and kept, so switching back is instant
+  - Unit + component tests (arrow pixels, direction, store, hook, panel, map setup); e2e switches direction and back;
+    each rule confirmed to fail a test when removed. Checked by screenshot against the live engine
 - [ ] e2e + ±10% time check
+- [ ] **User testing (for the user): try generated routes and loops in practice**
+  - [ ] Plan loops from your usual start points (gravel, road and MTB); flag anything unrideable and check the next
+        search avoids it
+  - [ ] Ride a suggested loop with a plain duration: compare the actual time with the predicted one (goal ±10%)
+  - [ ] Ride one with a structured workout: did the hard intervals land on climbs or flat stretches without stops,
+        and never on a descent?
+  - [ ] Try both directions of a loop: is the reversed one rideable and on mostly the same roads?
+  - [ ] Ride an MTB route: is "always fully off-road" right, or too rough in places?
+  - [ ] Load a real workout export from Garmin Connect (FIT) and from Intervals.icu (FIT and ZWO)
+  - Notes from rides go here; they feed calibrating the speed model and tuning the scoring
 
 ### M4: Getting there and back
 

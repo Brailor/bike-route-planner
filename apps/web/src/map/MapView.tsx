@@ -23,6 +23,7 @@ import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { ZONE_COLORS } from '../ui/zoneColors';
+import { ARROW_IMAGE, arrowImage } from './arrow';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
 import { currentPosition } from './locate';
 import { focusPadding, INITIAL_VIEW } from './view';
@@ -50,6 +51,19 @@ const MIN_DRAG_M = 5;
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const PASSIVE = { pointerEvents: 'none' } as const;
+
+/** The arrow image's size in pixels, drawn at twice the screen's density for sharp edges. */
+const ARROW_PX = 32;
+
+/** Arrows along a line in its direction: start to destination for a route, the riding direction for a loop. */
+const ARROW_LAYOUT = {
+  'symbol-placement': 'line',
+  'symbol-spacing': 90,
+  'icon-image': ARROW_IMAGE,
+  'icon-allow-overlap': true,
+  'icon-ignore-placement': true,
+  'icon-rotation-alignment': 'map',
+} as const;
 
 /** Zoom when the map opens on the user's location: a few km across, enough to see the nearby roads. */
 const LOCATED_ZOOM = 12;
@@ -134,6 +148,29 @@ export function MapView() {
     }),
     [loops],
   );
+  // Whole lines (not per-surface runs), so arrows are spaced evenly along them.
+  const routeLine = useMemo<FeatureCollection>(
+    () =>
+      route && !showingLoops
+        ? {
+            type: 'FeatureCollection',
+            features: [{ type: 'Feature', properties: {}, geometry: route.geometry }],
+          }
+        : EMPTY,
+    [route, showingLoops],
+  );
+  const loopLine = useMemo<FeatureCollection>(
+    () =>
+      selectedLoop
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              { type: 'Feature', properties: {}, geometry: selectedLoop.loop.route.geometry },
+            ],
+          }
+        : EMPTY,
+    [selectedLoop],
+  );
   const loopSurface = useMemo(
     () => (selectedLoop ? surfaceRuns(selectedLoop.loop.route) : EMPTY),
     [selectedLoop],
@@ -187,6 +224,8 @@ export function MapView() {
   const [overFlag, setOverFlag] = useState(false);
   const [overLoop, setOverLoop] = useState(false);
   const [userLocation, setUserLocation] = useState<LonLat>();
+  /** Arrow layers wait for the arrow image, so the map never looks for an image it doesn't have yet. */
+  const [arrowsReady, setArrowsReady] = useState(false);
   /** Set once the map moves (a pan, a zoom, a search result); after that, a late location fix must not move it. */
   const moved = useRef(false);
 
@@ -226,6 +265,9 @@ export function MapView() {
 
   /** Opens the map on the user's location when routing works there; otherwise it stays on INITIAL_VIEW. */
   function handleLoad(e: MapEvent) {
+    if (!e.target.hasImage(ARROW_IMAGE))
+      e.target.addImage(ARROW_IMAGE, arrowImage(ARROW_PX), { pixelRatio: 2 });
+    setArrowsReady(true);
     void currentPosition().then((position) => {
       if (!position) return;
       setUserLocation(position);
@@ -414,6 +456,17 @@ export function MapView() {
           paint={{ 'line-color': surfaceColor, 'line-width': 5, 'line-dasharray': [1.2, 0.8] }}
         />
       </Source>
+
+      {arrowsReady && (
+        <>
+          <Source id="route-direction" type="geojson" data={routeLine}>
+            <Layer id="route-arrows" type="symbol" layout={ARROW_LAYOUT} />
+          </Source>
+          <Source id="loop-direction" type="geojson" data={loopLine}>
+            <Layer id="loop-arrows" type="symbol" layout={ARROW_LAYOUT} />
+          </Source>
+        </>
+      )}
 
       <Source id="flag-selection" type="geojson" data={selected}>
         {/* A halo under the route line, so the selected stretch keeps its surface colours. */}

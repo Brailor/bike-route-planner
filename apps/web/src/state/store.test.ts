@@ -434,3 +434,65 @@ describe('loop search', () => {
     expect(state().loops?.selected).toBe(1);
   });
 });
+
+describe('loop direction', () => {
+  const ranked = (total: number): RankedLoop => ({
+    loop: { source: 'round_trip', route: fixtureRoute, ride: { durationS: 600, timesS: [] } },
+    score: {
+      total,
+      time: 1,
+      intervals: undefined,
+      flow: 1,
+      surface: 1,
+      variety: 1,
+      usesFlag: false,
+      intervalOnDescent: false,
+    },
+  });
+  const ready = () => {
+    state().addWaypoint([16.56, 48.2]);
+    state().setWorkout(durationWorkout('1 h ride', 3600));
+    state().searchLoops();
+    const request = state().loops!.request;
+    state().setLoopResults(request, [ranked(0.8), ranked(0.7)]);
+    return request;
+  };
+
+  it('asks for the loop the other way, then swaps it in, keeping this way to switch back to', () => {
+    const request = ready();
+    state().reverseLoop(1);
+    expect(state().loops?.reversing).toBe(1);
+    state().reverseLoop(0); // one at a time
+    expect(state().loops?.reversing).toBe(1);
+
+    state().setReversedLoop(request, 1, ranked(0.9));
+    const [first, second] = state().loops!.results;
+    expect(state().loops?.reversing).toBeUndefined();
+    expect(second?.score.total).toBe(0.9);
+    expect(second?.other?.score.total).toBe(0.7);
+    expect(first?.score.total).toBe(0.8); // others untouched
+
+    // Back again at once, without fetching.
+    state().reverseLoop(1);
+    expect(state().loops?.reversing).toBeUndefined();
+    expect(state().loops?.results[1]?.score.total).toBe(0.7);
+    expect(state().loops?.results[1]?.other?.score.total).toBe(0.9);
+    expect(state().loops?.results[1]?.other?.other).toBeUndefined();
+  });
+
+  it('ignores reversals for an older search, and records failures', () => {
+    const old = ready();
+    state().reverseLoop(0);
+    state().setReverseError(old, 'No way round');
+    expect(state().loops).toMatchObject({ reversing: undefined, reverseError: 'No way round' });
+    state().selectLoop(1);
+    expect(state().loops?.reverseError).toBeUndefined();
+
+    state().searchLoops();
+    state().setLoopResults(state().loops!.request, [ranked(0.6)]);
+    state().setReversedLoop(old, 0, ranked(0.9));
+    state().setReverseError(old, 'late');
+    expect(state().loops?.results[0]?.score.total).toBe(0.6);
+    expect(state().loops?.reverseError).toBeUndefined();
+  });
+});

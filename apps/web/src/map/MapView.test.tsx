@@ -3,6 +3,7 @@ import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
+import { ARROW_IMAGE } from './arrow';
 import { currentPosition } from './locate';
 import { MapView } from './MapView';
 
@@ -12,6 +13,8 @@ const map = vi.hoisted(() => ({
   fitBounds: vi.fn(),
   getZoom: () => 9,
   getContainer: () => ({ clientWidth: 1280, clientHeight: 720 }),
+  hasImage: vi.fn(() => false),
+  addImage: vi.fn(),
 }));
 /** Lets a test pan the map like a user would. */
 interface Gestures {
@@ -59,7 +62,7 @@ vi.mock('react-map-gl/maplibre', () => ({
   NavigationControl: () => null,
   ScaleControl: () => null,
   Source: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Layer: () => null,
+  Layer: ({ id }: { id: string }) => <span data-testid="layer" data-id={id} />,
   Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
@@ -75,6 +78,26 @@ describe('MapView', () => {
   it('keeps the OSM attribution expanded (ODbL)', () => {
     render(<MapView />);
     expect(screen.getByTestId('map')).toHaveAttribute('data-attribution-compact', 'false');
+  });
+
+  it('adds the direction arrow once the map has loaded, then draws arrows along routes and loops', () => {
+    map.addImage.mockClear();
+    render(<MapView />);
+    expect(map.addImage).toHaveBeenCalledExactlyOnceWith(
+      ARROW_IMAGE,
+      expect.objectContaining({ width: 32, height: 32 }),
+      { pixelRatio: 2 },
+    );
+    const layers = screen.getAllByTestId('layer').map((l) => l.dataset.id);
+    expect(layers).toEqual(expect.arrayContaining(['route-arrows', 'loop-arrows']));
+  });
+
+  it('doesn’t add the arrow again when the map already has it', () => {
+    map.addImage.mockClear();
+    map.hasImage.mockReturnValueOnce(true);
+    render(<MapView />);
+    expect(map.addImage).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId('layer').map((l) => l.dataset.id)).toContain('route-arrows');
   });
 
   it('hands maplibre an explicit worker URL', () => {

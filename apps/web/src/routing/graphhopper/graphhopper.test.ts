@@ -39,6 +39,20 @@ describe('buildRouteRequestBody', () => {
       settings: { profile: 'road' },
     });
     expect(body).not.toHaveProperty('custom_model');
+    expect(body).not.toHaveProperty('pass_through');
+  });
+
+  it('asks not to turn back at waypoints when told to pass through', () => {
+    const waypoints: [number, number][] = [
+      [16, 48],
+      [16.1, 48.1],
+      [16, 48],
+    ];
+    expect(
+      buildRouteRequestBody({ waypoints, settings: { profile: 'road' }, passThrough: true }),
+    ).toMatchObject({
+      pass_through: true,
+    });
   });
 });
 

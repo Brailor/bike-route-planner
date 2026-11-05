@@ -30,6 +30,8 @@ export interface FlagDraft {
 export interface RankedLoop {
   loop: LoopCandidate;
   score: LoopScore;
+  /** The same loop ridden the other way, once fetched. */
+  other?: RankedLoop;
 }
 
 /** Loops for the workout from the start point (README M3). */
@@ -42,6 +44,10 @@ export interface LoopSearch {
   /** Index into `results`. */
   selected: number;
   error: string | undefined;
+  /** The loop (index into `results`) being fetched the other way round. */
+  reversing: number | undefined;
+  /** Why the last reversal failed. */
+  reverseError: string | undefined;
 }
 
 /** Key for `placeNames`. */
@@ -141,6 +147,11 @@ interface PlannerState {
   setLoopResults: (request: LoopSearch['request'], results: RankedLoop[]) => void;
   setLoopError: (request: LoopSearch['request'], message: string) => void;
   selectLoop: (index: number) => void;
+  /** Rides the loop the other way: at once if it's been fetched before, otherwise once fetched (useLoopSearch). */
+  reverseLoop: (index: number) => void;
+  /** Stores the loop the other way round; ignored when the search has changed since. */
+  setReversedLoop: (request: LoopSearch['request'], index: number, reversed: RankedLoop) => void;
+  setReverseError: (request: LoopSearch['request'], message: string) => void;
   closeLoops: () => void;
   setRouteLoading: () => void;
   setRoute: (route: RouteResult | undefined) => void;
@@ -321,6 +332,8 @@ export const usePlanner = create<PlannerState>()((set, get) => {
             results: [],
             selected: 0,
             error: undefined,
+            reversing: undefined,
+            reverseError: undefined,
           },
           hoverIndex: undefined,
         };
@@ -349,7 +362,36 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     selectLoop: (selected) =>
       set((s) =>
         s.loops && selected >= 0 && selected < s.loops.results.length
-          ? { loops: { ...s.loops, selected }, hoverIndex: undefined }
+          ? { loops: { ...s.loops, selected, reverseError: undefined }, hoverIndex: undefined }
+          : s,
+      ),
+    reverseLoop: (index) =>
+      set((s) => {
+        const current = s.loops?.results[index];
+        if (!s.loops || !current || s.loops.reversing !== undefined) return s;
+        if (!current.other)
+          return { loops: { ...s.loops, reversing: index, reverseError: undefined } };
+        const { other } = current;
+        const here: RankedLoop = { loop: current.loop, score: current.score };
+        const results = s.loops.results.map((r, i) =>
+          i === index ? { ...other, other: here } : r,
+        );
+        return { loops: { ...s.loops, results }, hoverIndex: undefined };
+      }),
+    setReversedLoop: (request, index, reversed) =>
+      set((s) => {
+        const current = s.loops?.results[index];
+        if (s.loops?.request !== request || !current) return s;
+        const here: RankedLoop = { loop: current.loop, score: current.score };
+        const results = s.loops.results.map((r, i) =>
+          i === index ? { ...reversed, other: here } : r,
+        );
+        return { loops: { ...s.loops, results, reversing: undefined }, hoverIndex: undefined };
+      }),
+    setReverseError: (request, reverseError) =>
+      set((s) =>
+        s.loops?.request === request
+          ? { loops: { ...s.loops, reversing: undefined, reverseError } }
           : s,
       ),
     closeLoops: () => set((s) => (s.loops ? { loops: undefined, hoverIndex: undefined } : s)),

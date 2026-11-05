@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
 import { GraphHopperEngine } from '../routing/graphhopper/GraphHopperEngine';
 import { RoutingError, type RoutingEngine } from '../routing/types';
+import { predictRide } from '../speed/model';
 import { riderFrom, riderValue } from '../speed/rider';
 import { selectSettings, usePlanner } from '../state/store';
+import type { Workout } from '../types';
 import { findLoops } from './candidates';
-import { rankLoops } from './score';
+import { reverseWaypoints } from './direction';
+import { rankLoops, scoreLoop } from './score';
 
 const defaultEngine = new GraphHopperEngine();
 
@@ -17,6 +20,18 @@ function message(err: unknown) {
   if (err instanceof RoutingError && err.kind === 'no_route')
     return 'No loops found from this start. Try moving it onto a road or path.';
   return `Finding loops failed: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+/** What a search or a reversal is scored against: the workout searched for, and the current settings. */
+function scoreContext(workout: Workout) {
+  const state = usePlanner.getState();
+  return {
+    workout,
+    settings: selectSettings(state),
+    flags: state.flags,
+    ftpW: riderValue(state.userSettings, 'ftpW'),
+    rider: riderFrom(state.userSettings),
+  };
 }
 
 /**
@@ -40,13 +55,7 @@ export function useLoopSearch(engine: RoutingEngine = defaultEngine) {
   useEffect(() => {
     if (!request) return;
     const controller = new AbortController();
-    const state = usePlanner.getState();
-    const context = {
-      workout: request.workout,
-      settings: selectSettings(state),
-      flags: state.flags,
-      ftpW: riderValue(state.userSettings, 'ftpW'),
-    };
+    const context = scoreContext(request.workout);
     findLoops(
       engine,
       {
@@ -54,7 +63,7 @@ export function useLoopSearch(engine: RoutingEngine = defaultEngine) {
         durationS: request.workout.totalDurationS,
         settings: context.settings,
         flags: context.flags,
-        rider: riderFrom(state.userSettings),
+        rider: context.rider,
       },
       controller.signal,
     ).then(
@@ -67,4 +76,47 @@ export function useLoopSearch(engine: RoutingEngine = defaultEngine) {
     );
     return () => controller.abort();
   }, [engine, request]);
+
+  // Riding a loop the other way: the engine routes back through points along it, then it's timed and scored afresh
+  // (its climbs are now descents, which matters for where intervals land).
+  const reverseIndex = usePlanner((s) => s.loops?.reversing);
+  const searched = usePlanner((s) => s.loops?.request);
+  const toReverse = usePlanner((s) =>
+    reverseIndex === undefined ? undefined : s.loops?.results[reverseIndex]?.loop,
+  );
+  useEffect(() => {
+    if (!searched || reverseIndex === undefined || !toReverse) return;
+    const controller = new AbortController();
+    const context = scoreContext(searched.workout);
+    engine
+      .route(
+        {
+          waypoints: reverseWaypoints(toReverse.route.geometry.coordinates),
+          settings: context.settings,
+          flags: context.flags,
+          passThrough: true,
+        },
+        controller.signal,
+      )
+      .then(
+        (route) => {
+          const ride = predictRide(route, context.settings.profile, context.rider);
+          const reversed = { ...toReverse, route, ride };
+          usePlanner.getState().setReversedLoop(searched, reverseIndex, {
+            loop: reversed,
+            score: scoreLoop(reversed, context),
+          });
+        },
+        (err: unknown) =>
+          usePlanner
+            .getState()
+            .setReverseError(
+              searched,
+              err instanceof RoutingError && err.kind === 'no_route'
+                ? 'This loop can’t be ridden the other way.'
+                : message(err),
+            ),
+      );
+    return () => controller.abort();
+  }, [engine, searched, reverseIndex, toReverse]);
 }

@@ -7,6 +7,8 @@ export interface RouteRequest {
   settings: ProfileSettings;
   /** Stretches to keep off where there's any way around (README M2). */
   flags?: readonly AvoidFlag[];
+  /** Ride through the waypoints without turning back at them, e.g. when they trace a loop to follow. */
+  passThrough?: boolean;
 }
 
 /** A loop from `start` back to it, of about `distanceM` (README M3). The engine picks the way; `seed` varies it. */

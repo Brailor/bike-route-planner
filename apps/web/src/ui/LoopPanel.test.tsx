@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isClockwise } from '../loops/direction';
 import type { LoopScore } from '../loops/score';
 import { predictRide } from '../speed/model';
 import { usePlanner, type LoopSearch, type RankedLoop } from '../state/store';
@@ -46,6 +47,8 @@ function show(loops: Partial<LoopSearch> = {}) {
     ],
     selected: 0,
     error: undefined,
+    reversing: undefined,
+    reverseError: undefined,
     ...loops,
   };
   act(() => usePlanner.setState({ loops: value }));
@@ -139,6 +142,30 @@ describe('LoopPanel', () => {
     render(<Panel />);
     await userEvent.click(screen.getByRole('button', { name: 'Export GPX' }));
     expect(click).toHaveBeenCalledOnce();
+  });
+
+  it('shows which way the loop runs, and asks for the other way', async () => {
+    show();
+    render(<Panel />);
+    const way = isClockwise(fixtureRoute.geometry.coordinates);
+    const current = screen.getByRole('button', { name: way ? '↻ Clockwise' : '↺ Anticlockwise' });
+    const other = screen.getByRole('button', { name: way ? '↺ Anticlockwise' : '↻ Clockwise' });
+    expect(current).toHaveAttribute('aria-pressed', 'true');
+    expect(other).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(current); // already this way: nothing to do
+    expect(usePlanner.getState().loops?.reversing).toBeUndefined();
+    await userEvent.click(other);
+    expect(usePlanner.getState().loops?.reversing).toBe(0);
+    expect(screen.getByRole('status')).toHaveTextContent('Finding this loop the other way round…');
+    expect(other).toBeDisabled();
+    expect(current).toBeDisabled();
+  });
+
+  it('shows why a loop couldn’t be turned round', () => {
+    show({ reverseError: 'This loop can’t be ridden the other way.' });
+    render(<Panel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('This loop can’t be ridden the other way.');
   });
 
   it('closes', async () => {
