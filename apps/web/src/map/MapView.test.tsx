@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePlanner } from '../state/store';
@@ -15,6 +16,17 @@ const map = vi.hoisted(() => ({
   getContainer: () => ({ clientWidth: 1280, clientHeight: 720 }),
   hasImage: vi.fn(() => false),
   addImage: vi.fn(),
+  getMap: () => map,
+  // The base style's layers, then one of the app's (GeoJSON) layers.
+  getStyle: () => ({
+    layers: [
+      { id: 'water', type: 'fill', source: 'openmaptiles' },
+      { id: 'place', type: 'symbol', source: 'openmaptiles' },
+      { id: 'route-casing', type: 'line', source: 'route' },
+    ],
+  }),
+  getSource: (id: string) => ({ type: id === 'route' ? 'geojson' : 'vector' }),
+  setLayoutProperty: vi.fn(),
 }));
 /** Lets a test pan the map like a user would. */
 interface Gestures {
@@ -62,7 +74,18 @@ vi.mock('react-map-gl/maplibre', () => ({
   NavigationControl: () => null,
   ScaleControl: () => null,
   Source: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Layer: ({ id }: { id: string }) => <span data-testid="layer" data-id={id} />,
+  Layer: ({ id, beforeId }: { id: string; beforeId?: string }) => (
+    <span data-testid="layer" data-id={id} data-before={beforeId} />
+  ),
+  // A control's element goes where maplibre would put it: into the map.
+  useControl: (make: () => { onAdd: () => HTMLElement; onRemove: () => void }) => {
+    const control = useRef(make());
+    useEffect(() => {
+      const { onAdd, onRemove } = control.current;
+      document.body.append(onAdd());
+      return onRemove;
+    }, []);
+  },
   Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
@@ -98,6 +121,45 @@ describe('MapView', () => {
     render(<MapView />);
     expect(map.addImage).not.toHaveBeenCalled();
     expect(screen.getAllByTestId('layer').map((l) => l.dataset.id)).toContain('route-arrows');
+  });
+
+  it('switches the background from the map layers control, beneath the route', async () => {
+    map.setLayoutProperty.mockClear();
+    render(<MapView />);
+    const layer = (prefix: string) =>
+      screen.queryAllByTestId('layer').find((l) => l.dataset.id?.startsWith(prefix));
+    expect(layer('background-')).toBeUndefined(); // the street map is the base style itself
+
+    await userEvent.click(screen.getByRole('button', { name: 'Map layers' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Topo' }));
+    expect(usePlanner.getState().userSettings.mapBackground).toBe('topo');
+    expect(layer('background-')).toHaveAttribute('data-id', 'background-topo');
+    expect(layer('background-')).toHaveAttribute('data-before', 'route-casing');
+    // Topo has its own labels, so the whole base style is hidden.
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('water', 'visibility', 'none');
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith('place', 'visibility', 'none');
+  });
+
+  it('adds hillshade beneath the base style’s labels when it is switched on', async () => {
+    render(<MapView />);
+    expect(screen.queryAllByTestId('layer').map((l) => l.dataset.id)).not.toContain('hillshade');
+    await userEvent.click(screen.getByRole('button', { name: 'Map layers' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Hillshade' }));
+    expect(usePlanner.getState().userSettings.hillshade).toBe(true);
+    const hillshade = screen.getAllByTestId('layer').find((l) => l.dataset.id === 'hillshade');
+    expect(hillshade).toHaveAttribute('data-before', 'place');
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith('place', 'visibility', 'visible');
+  });
+
+  it('opens with the saved background', () => {
+    usePlanner.setState({ userSettings: { mapBackground: 'cycling', hillshade: true } });
+    render(<MapView />);
+    const ids = screen.getAllByTestId('layer').map((l) => l.dataset.id);
+    expect(ids).toEqual(expect.arrayContaining(['background-cycling', 'hillshade']));
+    const background = screen
+      .getAllByTestId('layer')
+      .find((l) => l.dataset.id === 'background-cycling');
+    expect(background).toHaveAttribute('data-before', 'hillshade');
   });
 
   it('hands maplibre an explicit worker URL', () => {

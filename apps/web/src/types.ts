@@ -59,4 +59,10 @@ export interface UserSettings {
   weightKg?: number;
   /** Steady power for a ride without a workout, as a share of FTP (%). */
   ridePowerPct?: number;
+  mapBackground?: MapBackground;
+  /** Shaded relief over the map background. */
+  hillshade?: boolean;
 }
+
+/** The map's background tiles: the street map, a cycling map, a topographic map or aerial photos. */
+export type MapBackground = 'map' | 'cycling' | 'topo' | 'satellite';

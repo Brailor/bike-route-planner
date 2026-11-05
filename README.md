@@ -28,7 +28,7 @@ This README describes what the app is for and how to run it. The milestones belo
 ```
 ┌────────────────────────────┐
 │  apps/web                  │  React + TypeScript + Vite
-│  MapLibre GL map, UI,      │  Map tiles: OpenFreeMap
+│  MapLibre GL map, UI,      │  Map tiles: OpenFreeMap (+ ADR 0009)
 │  elevation chart, GPX I/O  │  Local storage: IndexedDB
 └─────────────┬──────────────┘
               │ HTTP (Vite dev proxy: /gh → :8989)
@@ -50,7 +50,7 @@ Later:
 | Area | Choice |
 |---|---|
 | Frontend | React, TypeScript, Vite, `maplibre-gl`, `react-map-gl` |
-| Map tiles | OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`) |
+| Map tiles | OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`). Other backgrounds: CyclOSM, OpenTopoMap, Esri World Imagery (with an API key); hillshade from Mapterhorn (ADR 0009) |
 | Routing | GraphHopper, self-hosted, with per-request **custom models** |
 | OSM data | Geofabrik extracts `austria-latest.osm.pbf` + `hungary-latest.osm.pbf`, merged with osmium into one graph (cross-border routes work) |
 | Elevation | GraphHopper elevation (SRTM) |
@@ -111,6 +111,8 @@ Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses
 Recorded responses: `pnpm --filter web fixtures:record` (GraphHopper, needs the engine) and `pnpm --filter web fixtures:record-photon` (Photon, queries the public API).
 
 The engine's settings are in `services/routing/config.yml` (what it must keep is listed in [AGENTS.md](AGENTS.md#routing-engine)). After changing its encoded values, delete `services/routing/data/graph-cache` so the next `pnpm routing:start` re-imports (about 5 minutes).
+
+Satellite photos need an ArcGIS Location Platform API key (free tier): copy `apps/web/.env.example` to `apps/web/.env.local` and set `VITE_ESRI_API_KEY`. Without it, the map offers the other backgrounds only.
 
 The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to the Photon geocoder (`https://photon.komoot.io` for now), so the browser never deals with CORS.
 

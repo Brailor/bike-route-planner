@@ -380,6 +380,17 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     now descents) and kept, so switching back is instant
   - Unit + component tests (arrow pixels, direction, store, hook, panel, map setup); e2e switches direction and back;
     each rule confirmed to fail a test when removed. Checked by screenshot against the live engine
+- [x] Map backgrounds and hillshade (user's request, 2026-11-04; ADR 0009)
+  - A "Map layers" control under the zoom buttons: Map (Liberty), Cycling (CyclOSM), Topo (OpenTopoMap), Satellite
+    (Esri World Imagery, only with `VITE_ESRI_API_KEY`), plus Hillshade (Mapterhorn elevation) over any of them.
+    Kept with the user's settings. Backgrounds are raster layers beneath the route over the Liberty style, whose
+    layers are hidden, keeping its labels over satellite (`map/layers.ts`)
+  - Unit + component tests (layer plan, switcher, map wiring); e2e `layers.spec.ts` with stubbed tiles (switch,
+    hillshade, credits, kept after reload, one raster background for another); each rule confirmed to fail a test
+    when removed. Checked by screenshot: every background with and without hillshade, a route over Topo, and
+    hillshade over Hungary at zoom 14 (its elevation tiles end at 12)
+  - [ ] Satellite: not tried yet, as there's no API key. Create an ArcGIS Location Platform key, set it in
+        `apps/web/.env.local`, and check the photos, the labels over them and the credit
 - [ ] e2e + ±10% time check
 - [ ] **User testing (for the user): try generated routes and loops in practice**
   - [ ] Plan loops from your usual start points (gravel, road and MTB); flag anything unrideable and check the next

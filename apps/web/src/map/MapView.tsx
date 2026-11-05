@@ -23,12 +23,29 @@ import { usePlanner } from '../state/store';
 import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { ZONE_COLORS } from '../ui/zoneColors';
+import { LayerSwitcher } from '../ui/LayerSwitcher';
 import { ARROW_IMAGE, arrowImage } from './arrow';
+import {
+  backgrounds,
+  baseLayers,
+  chosenBackground,
+  HILLSHADE_LAYER,
+  HILLSHADE_SOURCE,
+  layerPlan,
+  type BaseLayer,
+} from './layers';
+import { MapControl } from './MapControl';
 import { insertionIndex, nearestIndex, surfaceRuns } from './routeGeometry';
 import { currentPosition } from './locate';
 import { focusPadding, INITIAL_VIEW } from './view';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+
+/** Backgrounds on offer; satellite only with an Esri key in the environment (ADR 0009). */
+const BACKGROUNDS = backgrounds(import.meta.env.VITE_ESRI_API_KEY);
+
+/** The lowest layer the app draws: backgrounds and hillshade go beneath it. */
+const FIRST_OWN_LAYER = 'route-casing';
 
 /** Wide invisible line on top of the route, so it is easy to hover and grab. */
 const ROUTE_HIT_LAYER = 'route-hit';
@@ -111,6 +128,8 @@ export function MapView() {
   const editingFlagId = usePlanner((s) => s.editingFlagId);
   const loops = usePlanner((s) => s.loops);
   const ftpW = usePlanner((s) => riderValue(s.userSettings, 'ftpW'));
+  const backgroundChoice = usePlanner((s) => s.userSettings.mapBackground);
+  const hillshade = usePlanner((s) => s.userSettings.hillshade ?? false);
   const {
     addWaypoint,
     insertWaypoint,
@@ -123,6 +142,7 @@ export function MapView() {
     addDraftPoint,
     moveDraftPoint,
     selectLoop,
+    updateUserSettings,
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
@@ -226,6 +246,13 @@ export function MapView() {
   const [userLocation, setUserLocation] = useState<LonLat>();
   /** Arrow layers wait for the arrow image, so the map never looks for an image it doesn't have yet. */
   const [arrowsReady, setArrowsReady] = useState(false);
+  /** The base style's layers, known once the map has loaded; backgrounds and hillshade wait for them. */
+  const [base, setBase] = useState<BaseLayer[]>();
+  const background = chosenBackground(BACKGROUNDS, backgroundChoice);
+  const plan = useMemo(
+    () => base && layerPlan(background, hillshade, base, FIRST_OWN_LAYER),
+    [background, hillshade, base],
+  );
   /** Set once the map moves (a pan, a zoom, a search result); after that, a late location fix must not move it. */
   const moved = useRef(false);
 
@@ -263,11 +290,20 @@ export function MapView() {
     });
   }, [mapFocus]);
 
+  // Shows the base style's layers that the background leaves visible, and hides the rest.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !plan) return;
+    for (const [id, visibility] of Object.entries(plan.visibility))
+      map.setLayoutProperty(id, 'visibility', visibility);
+  }, [plan]);
+
   /** Opens the map on the user's location when routing works there; otherwise it stays on INITIAL_VIEW. */
   function handleLoad(e: MapEvent) {
     if (!e.target.hasImage(ARROW_IMAGE))
       e.target.addImage(ARROW_IMAGE, arrowImage(ARROW_PX), { pixelRatio: 2 });
     setArrowsReady(true);
+    setBase(baseLayers(e.target.getStyle().layers, (id) => e.target.getSource(id)?.type));
     void currentPosition().then((position) => {
       if (!position) return;
       setUserLocation(position);
@@ -376,6 +412,15 @@ export function MapView() {
       onMouseOut={() => setHoverIndex(undefined)}
     >
       <NavigationControl position="top-right" />
+      <MapControl position="top-right">
+        <LayerSwitcher
+          offered={BACKGROUNDS}
+          background={background.id}
+          hillshade={hillshade}
+          onBackground={(mapBackground) => updateUserSettings({ mapBackground })}
+          onHillshade={(on) => updateUserSettings({ hillshade: on })}
+        />
+      </MapControl>
       <ScaleControl position="bottom-right" unit="metric" />
 
       <Source id="route" type="geojson" data={runs}>
@@ -406,6 +451,29 @@ export function MapView() {
           paint={{ 'line-color': '#000000', 'line-opacity': 0, 'line-width': 18 }}
         />
       </Source>
+
+      {/* Beneath the route (and the base style's labels, where they stay): hillshade, and a background beneath it. */}
+      {plan && hillshade && (
+        <Source id="hillshade" {...HILLSHADE_SOURCE}>
+          <Layer
+            id={HILLSHADE_LAYER}
+            type="hillshade"
+            beforeId={plan.hillshadeBefore}
+            paint={{ 'hillshade-exaggeration': 0.35 }}
+          />
+        </Source>
+      )}
+      {plan && background.source && (
+        // One source and layer per background: swapping them under the same ids would add the new one before the
+        // old one is gone.
+        <Source key={background.id} id={`background-${background.id}`} {...background.source}>
+          <Layer
+            id={`background-${background.id}`}
+            type="raster"
+            beforeId={plan.backgroundBefore}
+          />
+        </Source>
+      )}
 
       {/*
         Suggested loops: the others faint; the selected one in surface colours like a route, its hard intervals as an

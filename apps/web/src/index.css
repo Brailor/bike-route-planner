@@ -629,3 +629,61 @@ body,
 .elevation__band {
   opacity: 0.35;
 }
+
+/* Map layers: a button styled like the map's own controls, opening a small panel beside it. */
+.layers {
+  position: relative;
+}
+
+.layers__toggle {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.1);
+  cursor: pointer;
+}
+
+.layers__toggle:hover {
+  background: #f2f2f2;
+}
+
+.layers__panel {
+  position: absolute;
+  top: 0;
+  right: 37px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+}
+
+.layers__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.layers__group legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.layers input {
+  margin: 0;
+  accent-color: var(--accent);
+}
