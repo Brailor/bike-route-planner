@@ -12,6 +12,7 @@ import {
   type MapEvent,
   type MapLayerMouseEvent,
   type MapRef,
+  type MapStyleDataEvent,
   type MarkerDragEvent,
 } from 'react-map-gl/maplibre';
 import { selectionGeometry, type FlagHandle } from '../flags/selection';
@@ -246,7 +247,7 @@ export function MapView() {
   const [userLocation, setUserLocation] = useState<LonLat>();
   /** Arrow layers wait for the arrow image, so the map never looks for an image it doesn't have yet. */
   const [arrowsReady, setArrowsReady] = useState(false);
-  /** The base style's layers, known once the map has loaded; backgrounds and hillshade wait for them. */
+  /** The base style's layers, known once the style has loaded; backgrounds and hillshade wait for them. */
   const [base, setBase] = useState<BaseLayer[]>();
   const background = chosenBackground(BACKGROUNDS, backgroundChoice);
   const plan = useMemo(
@@ -303,7 +304,6 @@ export function MapView() {
     if (!e.target.hasImage(ARROW_IMAGE))
       e.target.addImage(ARROW_IMAGE, arrowImage(ARROW_PX), { pixelRatio: 2 });
     setArrowsReady(true);
-    setBase(baseLayers(e.target.getStyle().layers, (id) => e.target.getSource(id)?.type));
     void currentPosition().then((position) => {
       if (!position) return;
       setUserLocation(position);
@@ -311,6 +311,15 @@ export function MapView() {
       if (unused && inSupportedRegion(position))
         e.target.jumpTo({ center: position, zoom: LOCATED_ZOOM });
     });
+  }
+
+  /**
+   * Reads the base style's layers as soon as the style has loaded, not once all its tiles have ('load'): a saved
+   * background then shows from the start instead of after the street map.
+   */
+  function handleStyleData(e: MapStyleDataEvent) {
+    const layers = base ? undefined : e.target.getStyle()?.layers;
+    if (layers?.length) setBase(baseLayers(layers, (id) => e.target.getSource(id)?.type));
   }
 
   function handleClick(e: MapLayerMouseEvent) {
@@ -403,6 +412,7 @@ export function MapView() {
                     : 'crosshair'
       }
       onLoad={handleLoad}
+      onStyleData={handleStyleData}
       onMoveStart={() => (moved.current = true)}
       onMoveEnd={(e) => setMapCentre([e.viewState.longitude, e.viewState.latitude])}
       onClick={handleClick}

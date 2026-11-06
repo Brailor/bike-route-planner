@@ -389,9 +389,24 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     hillshade, credits, kept after reload, one raster background for another); each rule confirmed to fail a test
     when removed. Checked by screenshot: every background with and without hillshade, a route over Topo, and
     hillshade over Hungary at zoom 14 (its elevation tiles end at 12)
+  - The base style's layers are read when the style has loaded, not on 'load' (all its tiles): a saved background
+    showed only after ~5 s of street map on a busy machine (found by the e2e reload check under load)
   - [ ] Satellite: not tried yet, as there's no API key. Create an ArcGIS Location Platform key, set it in
         `apps/web/.env.local`, and check the photos, the labels over them and the credit
-- [ ] e2e + ±10% time check
+- [x] e2e + ±10% time check (README M3 "done when")
+  - `e2e/live/live.spec.ts`, "workout loops against the live engine", from three starts unlike each other:
+    Stephansplatz (city, many stops), the Lobau (flat) and Hütteldorf (Wienerwald climbs). "Home" is an M4 setting,
+    so these stand in for it
+  - 2.5 h gravel: all three loops on offer within ±10% of the time, from every start
+  - 2 h with 3 × 10 min threshold (ZWO): all three within ±10%, none with an interval on a descent, the best one's
+    intervals not cut by stops, three bands on the elevation chart
+  - Passes live (6/6). Fails when the per-loop retry and time ranking are taken out (loops 14–69% off), and when the
+    descent penalty is (Hütteldorf: two loops with an interval on a descent). A wrong first distance guess (1.3
+    instead of 0.9) still passes: the per-loop retry corrects it
+  - A 2.5 h search is ~23 round trips, ~12 s on a busy laptop; the tests allow 90 s for the cards
+  - Seen while writing it: threshold intervals score at most 0.7 on the flat (a climb adds the rest), the threshold
+    for "Intervals fit the terrain", so flat starts like the Lobau rarely get that note even when their intervals
+    sit on long flat stretches without stops
 - [ ] **User testing (for the user): try generated routes and loops in practice**
   - [ ] Plan loops from your usual start points (gravel, road and MTB); flag anything unrideable and check the next
         search avoids it

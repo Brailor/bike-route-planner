@@ -18,13 +18,13 @@ const map = vi.hoisted(() => ({
   addImage: vi.fn(),
   getMap: () => map,
   // The base style's layers, then one of the app's (GeoJSON) layers.
-  getStyle: () => ({
+  getStyle: vi.fn(() => ({
     layers: [
       { id: 'water', type: 'fill', source: 'openmaptiles' },
       { id: 'place', type: 'symbol', source: 'openmaptiles' },
       { id: 'route-casing', type: 'line', source: 'route' },
-    ],
-  }),
+    ] as { id: string; type: string; source: string }[],
+  })),
   getSource: (id: string) => ({ type: id === 'route' ? 'geojson' : 'vector' }),
   setLayoutProperty: vi.fn(),
 }));
@@ -32,8 +32,17 @@ const map = vi.hoisted(() => ({
 interface Gestures {
   moveStart: () => void;
   moveEnd: (centre: { longitude: number; latitude: number }) => void;
+  /** maplibre's 'styledata': fired again whenever a layer or source is added. */
+  styleData: () => void;
+  /** Whether the map's tiles finish loading ('load'); the style always does. */
+  tilesLoad: boolean;
 }
-const gestures: Gestures = vi.hoisted(() => ({ moveStart: () => {}, moveEnd: () => {} }));
+const gestures: Gestures = vi.hoisted(() => ({
+  moveStart: () => {},
+  moveEnd: () => {},
+  styleData: () => {},
+  tilesLoad: true,
+}));
 
 vi.mock('./locate', () => ({ currentPosition: vi.fn(() => Promise.resolve(undefined)) }));
 
@@ -44,21 +53,24 @@ vi.mock('react-map-gl/maplibre', () => ({
     workerUrl: string;
     attributionControl: { compact: boolean };
     onLoad: (e: { target: typeof map }) => void;
+    onStyleData: (e: { target: typeof map }) => void;
     onMoveStart: () => void;
     onMoveEnd: (e: { viewState: { longitude: number; latitude: number } }) => void;
     ref: Ref<typeof map>;
     children: ReactNode;
   }) => {
-    const { onLoad, onMoveStart, onMoveEnd } = props;
+    const { onLoad, onStyleData, onMoveStart, onMoveEnd } = props;
     gestures.moveStart = onMoveStart;
     gestures.moveEnd = (viewState) => onMoveEnd({ viewState });
+    gestures.styleData = () => onStyleData({ target: map });
     useImperativeHandle(props.ref, () => map);
     // maplibre fires 'load' once per map, not once per render.
     const loaded = useRef(false);
     useEffect(() => {
       if (loaded.current) return;
       loaded.current = true;
-      onLoad({ target: map });
+      onStyleData({ target: map }); // the style loads before its tiles do
+      if (gestures.tilesLoad) onLoad({ target: map });
     });
     return (
       <div
@@ -160,6 +172,33 @@ describe('MapView', () => {
       .getAllByTestId('layer')
       .find((l) => l.dataset.id === 'background-cycling');
     expect(background).toHaveAttribute('data-before', 'hillshade');
+  });
+
+  it('shows the saved background as soon as the style has loaded, before its tiles', () => {
+    gestures.tilesLoad = false;
+    usePlanner.setState({ userSettings: { mapBackground: 'topo' } });
+    render(<MapView />);
+    gestures.tilesLoad = true;
+    expect(screen.getAllByTestId('layer').map((l) => l.dataset.id)).toContain('background-topo');
+  });
+
+  it('reads the base style once: later style changes are the app’s own layers', async () => {
+    map.setLayoutProperty.mockClear();
+    render(<MapView />);
+    // As maplibre reports it once the app has added a background: never one of the base layers to hide.
+    const { layers } = map.getStyle();
+    map.getStyle.mockReturnValueOnce({
+      layers: [...layers, { id: 'background-topo', type: 'raster', source: 'background-topo' }],
+    });
+    act(() => gestures.styleData());
+    await userEvent.click(screen.getByRole('button', { name: 'Map layers' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Topo' }));
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('water', 'visibility', 'none');
+    expect(map.setLayoutProperty).not.toHaveBeenCalledWith(
+      'background-topo',
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it('hands maplibre an explicit worker URL', () => {

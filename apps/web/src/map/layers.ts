@@ -105,7 +105,7 @@ export interface BaseLayer {
 }
 
 /**
- * The base style's layers, read once the map has loaded: every layer except the app's own, which all draw GeoJSON.
+ * The base style's layers, read once the style has loaded: every layer except the app's own, which all draw GeoJSON.
  * (Background and hillshade layers are only added after this.)
  */
 export function baseLayers(

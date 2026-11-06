@@ -249,3 +249,80 @@ test.describe('app against the live engine', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 });
+
+// README M3, "done when": a 2.5 h gravel ride gives loops within ±10% of the time, and a structured workout's
+// intervals land on suitable terrain. Three starts unlike each other stand in for "home" (a setting that comes with
+// M4): the city centre (many stops), the flat Lobau, and Hütteldorf at the foot of the Wienerwald (climbs).
+test.describe('workout loops against the live engine', () => {
+  // A 2.5 h search is ~23 long round trips: ~12 s on a busy laptop, twice that with the other worker searching too.
+  test.describe.configure({ timeout: 120_000 });
+
+  const STARTS: Record<string, LonLat> = {
+    Stephansplatz: [16.3725, 48.2085],
+    Lobau: [16.5203, 48.1712],
+    Hütteldorf: [16.2615, 48.1975],
+  };
+
+  // 2 h: 20 min easy, then 3 × (10 min at threshold, 10 min easy), then 40 min easy.
+  const THRESHOLD = `<workout_file><name>3 x 10 threshold</name><workout>
+    <SteadyState Duration="1200" Power="0.6"/>
+    <IntervalsT Repeat="3" OnDuration="600" OffDuration="600" OnPower="0.95" OffPower="0.6"/>
+    <SteadyState Duration="2400" Power="0.6"/>
+  </workout></workout_file>`;
+
+  async function placeStart(page: Page, point: LonLat) {
+    const { x, y } = projectToScreen(point, page.viewportSize()!, INITIAL_VIEW);
+    await page.mouse.click(x, y);
+    await expect(page.getByTestId('waypoint')).toHaveCount(1);
+  }
+
+  /** Each card's predicted time off the target, in percent ("on time" is 0). */
+  async function timesOff(page: Page) {
+    const cards = page.getByTestId('loop-card');
+    await expect(cards).toHaveCount(3, { timeout: 90_000 });
+    return Promise.all(
+      (await cards.all()).map(async (card) => {
+        const off = /\((on time|([+−])(\d+)%)\)/.exec(await card.innerText());
+        expect(off, await card.innerText()).not.toBeNull();
+        return off![1] === 'on time' ? 0 : Number(off![3]) * (off![2] === '−' ? -1 : 1);
+      }),
+    );
+  }
+
+  for (const [name, start] of Object.entries(STARTS)) {
+    test(`2.5 h gravel from ${name}: all three loops within ±10% of the time`, async ({ page }) => {
+      await openMap(page);
+      await placeStart(page, start);
+      const workout = page.getByRole('region', { name: 'Workout' });
+      await workout.getByLabel('Ride duration (h:mm or minutes)').fill('2:30');
+      await workout.getByRole('button', { name: 'Set' }).click();
+      await workout.getByRole('button', { name: 'Find loops from the start' }).click();
+
+      for (const off of await timesOff(page)) expect(Math.abs(off)).toBeLessThanOrEqual(10);
+    });
+
+    test(`3 × 10 min threshold from ${name}: intervals on suitable terrain, on time`, async ({
+      page,
+    }) => {
+      await openMap(page);
+      await placeStart(page, start);
+      await page.getByLabel('Load workout file (.zwo, .fit)').setInputFiles({
+        name: 'threshold.zwo',
+        mimeType: 'application/xml',
+        buffer: Buffer.from(THRESHOLD),
+      });
+      await page.getByRole('button', { name: 'Find loops from the start' }).click();
+
+      for (const off of await timesOff(page)) expect(Math.abs(off)).toBeLessThanOrEqual(10);
+      // No loop on offer puts an interval on a descent, and the best one's aren't cut by stops either. (Not "fit the
+      // terrain": threshold intervals score that only with climbs, which the Lobau doesn't have.)
+      await expect(
+        page.getByTestId('loop-card').getByText('An interval falls on a descent'),
+      ).toHaveCount(0);
+      const best = page.getByTestId('loop-card').first();
+      await expect(best).not.toContainText('Intervals cut by stops or descents');
+      // The three threshold blocks, shaded on the elevation chart.
+      await expect(page.getByTestId('elevation-band')).toHaveCount(3);
+    });
+  }
+});
