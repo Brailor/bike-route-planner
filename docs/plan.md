@@ -296,6 +296,9 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     by one and all at once, no routing until asked, map clicks ignored, export); `e2e:live` exports a route, flags
     it, opens the export, reroutes, and the corrected export runs along no flag. Each rule confirmed to fail a test
     when removed, except a speed-only bounding-box check
+  - The header's Clear also removes an opened track (user's request, 2026-11-07): the panel's Close sits below the
+    other panels, and Clear didn't show without a route. Waypoints come back with Undo, the track doesn't (open the
+    file again)
   - Not done: surfaces and ride time for an opened track (would need map matching); the track isn't kept across a
     reload
 

@@ -51,7 +51,7 @@ export function Sidebar() {
   const marking = usePlanner((s) => s.flagDraft !== undefined);
   const loops = usePlanner((s) => s.loops);
   const track = usePlanner((s) => s.track);
-  const clearWaypoints = usePlanner((s) => s.clearWaypoints);
+  const clearMap = usePlanner((s) => s.clearMap);
   const undo = usePlanner((s) => s.undo);
   const redo = usePlanner((s) => s.redo);
   const canUndo = usePlanner((s) => s.past.length > 0);
@@ -81,8 +81,13 @@ export function Sidebar() {
           >
             Redo
           </button>
-          {waypoints.length > 0 && (
-            <button type="button" className="button" onClick={clearWaypoints}>
+          {(waypoints.length > 0 || track) && (
+            <button
+              type="button"
+              className="button"
+              onClick={clearMap}
+              title={track ? 'Remove the opened track and the route' : 'Remove the route'}
+            >
               Clear
             </button>
           )}

@@ -131,3 +131,18 @@ test('reroute around every flagged section at once', async ({ page }) => {
   ]);
   await expect(page.getByTestId('track-distance')).toHaveText('2.8 km');
 });
+
+test('Clear removes an opened track and the route', async ({ page }) => {
+  await stubRouting(page, straightRoute);
+  await openMap(page);
+  await page.mouse.click(800, 350);
+  await page.mouse.click(950, 500);
+  await expect(page.getByTestId('stat-distance')).toBeVisible();
+  await openTrack(page);
+
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await expect(page.getByRole('region', { name: 'Opened track' })).toHaveCount(0);
+  await expect(page.getByTestId('waypoint')).toHaveCount(0);
+  await expect(page.getByText('Click the map to set a start point.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Clear' })).toHaveCount(0);
+});

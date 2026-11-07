@@ -131,6 +131,11 @@ interface PlannerState {
   moveWaypoint: (index: number, point: LonLat) => void;
   removeWaypoint: (index: number) => void;
   clearWaypoints: () => void;
+  /**
+   * Starts over: removes the waypoints (undoable) and an opened track (not undoable; it can be opened again from its
+   * file).
+   */
+  clearMap: () => void;
   /** Replaces the start, or sets it when there are no waypoints. Shows it on the map. */
   setStart: (place: Pick<Place, 'name' | 'point'>) => void;
   /** Replaces the destination, or adds it after a lone start. Needs a start. Shows the route's ends on the map. */
@@ -274,6 +279,10 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     moveWaypoint: (index, point) => edit((w) => w.map((p, i) => (i === index ? point : p))),
     removeWaypoint: (index) => edit((w) => w.filter((_, i) => i !== index)),
     clearWaypoints: () => edit(() => []),
+    clearMap: () => {
+      if (get().waypoints.length > 0) edit(() => []);
+      get().closeTrack();
+    },
     setStart: (place) => pick(place, (w) => [place.point, ...w.slice(1)]),
     setDestination: (place) => {
       if (get().waypoints.length === 0) return;

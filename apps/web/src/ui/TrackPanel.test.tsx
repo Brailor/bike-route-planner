@@ -141,4 +141,12 @@ describe('opening a GPX track', () => {
     await waitFor(() => expect(state().track).toBeUndefined());
     expect(screen.queryByRole('region', { name: 'Opened track' })).not.toBeInTheDocument();
   });
+
+  it('Clear in the header removes the track, even with no route', async () => {
+    const user = await openTrack();
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(state().track).toBeUndefined();
+    expect(screen.queryByRole('region', { name: 'Opened track' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+  });
 });

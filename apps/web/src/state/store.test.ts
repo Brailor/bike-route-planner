@@ -647,3 +647,22 @@ describe('opened tracks', () => {
     expect(state().track).toBeUndefined();
   });
 });
+
+describe('clearing the map', () => {
+  it('removes the waypoints and an opened track; undo brings the waypoints back', () => {
+    state().addWaypoint([16, 48]);
+    state().openTrack('Sunday ride', east(0, 1000));
+    state().clearMap();
+    expect(state().waypoints).toEqual([]);
+    expect(state().track).toBeUndefined();
+    state().undo();
+    expect(state().waypoints).toEqual([[16, 48]]);
+  });
+
+  it('removes a track opened with no route, without an empty undo step', () => {
+    state().openTrack('Sunday ride', east(0, 1000));
+    state().clearMap();
+    expect(state().track).toBeUndefined();
+    expect(state().past).toEqual([]);
+  });
+});
