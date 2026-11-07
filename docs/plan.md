@@ -31,7 +31,8 @@ apps/web/src/
   routing/        RoutingEngine interface, graphhopper/ adapter, request/response mapping
   profiles/       settings → custom-model transform (pure)
   route/          stats, surface breakdown, elevation series (pure)
-  gpx/            export (M1), import (M4)
+  gpx/            export (M1), import (M2)
+  track/          an opened GPX track against the flags: sections, ways around (M2)
   ui/             panels, profile switcher, slider, elevation chart
   state/          app store (zustand)
   storage/        IndexedDB via `idb` (M2)
@@ -282,6 +283,21 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - `flags.spec.ts` (recorded answers: request carries the flag rules, route 3.4 → 3.7 km, kept after reload and sent
     with a fresh route) and `e2e:live` (real engine: route changes with no warning, Clear + replan gives the same
     detour; a flag over the start warns)
+- [x] Open a GPX track and reroute around the flagged sections it runs through (user's request, 2026-11-06; ADR 0010)
+  - "Open GPX" in the sidebar header. The track is shown as it is, in place of the route until closed; the app only
+    finds where it runs along flags (15 m tolerance, at least half the stretch, so crossings don't count) and asks
+    about each section: "Reroute around it", "Keep it", or "Reroute all". Export GPX gives the corrected track
+  - Ways around are asked for from 50 m, 300 m, 1 km and 3 km either side, the cheapest spliced in (each metre of
+    the track given up counts as ¼ m of riding); any part that rides back or on along the track is dropped, so no
+    spurs. Live, 6 routes around Vienna with 200–600 m flags: 50 m alone added up to 6.4 km; with the choice, 4 of
+    them added 0.5–3.6 km less. No new U-turns; every corrected track, checked again, ran along no flag; the same on
+    a GPS-like trace
+  - Unit tests (GPX reading, sections, splicing, choice of way, store, hook, panel, map); e2e `track.spec.ts` (one
+    by one and all at once, no routing until asked, map clicks ignored, export); `e2e:live` exports a route, flags
+    it, opens the export, reroutes, and the corrected export runs along no flag. Each rule confirmed to fail a test
+    when removed, except a speed-only bounding-box check
+  - Not done: surfaces and ride time for an opened track (would need map matching); the track isn't kept across a
+    reload
 
 ### M3: Workout-matched routes
 
@@ -421,6 +437,8 @@ flags are avoided strongly rather than blocked, and when a route still has to us
 ### M4: Getting there and back
 
 - [ ] GPX import
+  - Reading GPX files is done (M2, opened tracks); what's left is using an opened track as M4's input (start, end,
+    planned start time)
 - [ ] Home location setting
 - [ ] `TransitEngine` adapter + MOTIS/Transitous implementation (respect its usage policy)
 - [ ] Bike-carriage marking per leg + user "bike not allowed" corrections

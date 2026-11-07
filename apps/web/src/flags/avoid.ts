@@ -2,7 +2,7 @@
 // ways the stretch runs on, so crossing and nearby roads stay usable.
 import buffer from '@turf/buffer';
 import type { LineString, MultiPolygon, Point, Polygon } from 'geojson';
-import { distanceM, segmentLengthsM } from '../geo';
+import { distanceM, projectOnSegment, segmentLengthsM } from '../geo';
 import type { RouteResult } from '../routing/types';
 import type { AvoidFlag } from '../types';
 
@@ -81,19 +81,9 @@ export function avoidArea(flag: AvoidFlag): Polygon | MultiPolygon {
 
 /** Shortest distance (m) from a point to a polyline, in a local flat approximation (fine at flag scale). */
 function distanceToLineM(point: Position, line: readonly Position[]): number {
-  const [px = 0, py = 0] = point;
-  const kx = distanceM([px - 0.5, py], [px + 0.5, py]); // metres per degree of longitude here
-  const ky = distanceM([px, py - 0.5], [px, py + 0.5]);
   let best = Infinity;
-  for (let i = 0; i + 1 < line.length; i++) {
-    const [ax = 0, ay = 0] = line[i] ?? [];
-    const [bx = 0, by = 0] = line[i + 1] ?? [];
-    const [x1, y1, x2, y2] = [(ax - px) * kx, (ay - py) * ky, (bx - px) * kx, (by - py) * ky];
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const t = dx || dy ? Math.min(1, Math.max(0, -(x1 * dx + y1 * dy) / (dx * dx + dy * dy))) : 0;
-    best = Math.min(best, Math.hypot(x1 + t * dx, y1 + t * dy));
-  }
+  for (let i = 0; i + 1 < line.length; i++)
+    best = Math.min(best, projectOnSegment(point, line[i] ?? [], line[i + 1] ?? []).distanceM);
   if (line.length === 1) best = distanceM(point, line[0] ?? []);
   return best;
 }

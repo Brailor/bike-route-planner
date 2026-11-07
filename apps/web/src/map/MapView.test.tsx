@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePlanner } from '../state/store';
+import { east, flagOn } from '../test/metres';
+import { fixtureRoute } from '../test/route';
 import type { LonLat } from '../types';
 import { ARROW_IMAGE } from './arrow';
 import { currentPosition } from './locate';
@@ -85,7 +87,11 @@ vi.mock('react-map-gl/maplibre', () => ({
   },
   NavigationControl: () => null,
   ScaleControl: () => null,
-  Source: ({ children }: { children: ReactNode }) => <>{children}</>,
+  Source: ({ id, data, children }: { id: string; data?: unknown; children: ReactNode }) => (
+    <div data-testid="source" data-id={id} data-data={JSON.stringify(data)}>
+      {children}
+    </div>
+  ),
   Layer: ({ id, beforeId }: { id: string; beforeId?: string }) => (
     <span data-testid="layer" data-id={id} data-before={beforeId} />
   ),
@@ -292,5 +298,62 @@ describe('MapView following address search', () => {
     render(<MapView />);
     act(() => gestures.moveEnd({ longitude: 19.04, latitude: 47.5 }));
     expect(usePlanner.getState().mapCentre).toEqual([19.04, 47.5]);
+  });
+
+  describe('an opened track', () => {
+    /** The lines drawn by a source, as lists of coordinates. */
+    const lines = (id: string) => {
+      const source = screen.getAllByTestId('source').find((el) => el.dataset.id === id);
+      const data = JSON.parse(source?.dataset.data ?? 'null') as {
+        features: { geometry: { coordinates: number[][] } }[];
+      };
+      return data.features.map((f) => f.geometry.coordinates);
+    };
+    const TRACK = east(0, 1000);
+
+    it('takes the route’s place, with arrows along it, and puts the waypoints away', () => {
+      usePlanner.setState({
+        waypoints: [
+          [16.4, 48.2],
+          [16.45, 48.2],
+        ],
+        route: fixtureRoute,
+      });
+      render(<MapView />);
+      expect(lines('route')).not.toEqual([]);
+      expect(screen.getAllByTestId('waypoint')).toHaveLength(2);
+
+      act(() => usePlanner.getState().openTrack('Sunday ride', TRACK));
+      expect(lines('route')).toEqual([]);
+      expect(lines('track')).toEqual([TRACK]);
+      expect(lines('route-direction')).toEqual([TRACK]);
+      expect(screen.queryAllByTestId('waypoint')).toHaveLength(0);
+
+      act(() => usePlanner.getState().closeTrack());
+      expect(lines('track')).toEqual([]);
+      expect(lines('route-direction')).toEqual([fixtureRoute.geometry.coordinates]);
+      expect(screen.getAllByTestId('waypoint')).toHaveLength(2);
+    });
+
+    it('marks the flagged section being asked about', () => {
+      render(<MapView />);
+      act(() => {
+        usePlanner.getState().loadFlags([flagOn('f', east(400, 600, 50))]);
+        usePlanner.getState().openTrack('Sunday ride', TRACK);
+      });
+      const section = usePlanner.getState().track?.sections[0];
+      expect(lines('flag-selection')).toEqual([TRACK.slice(section?.from, (section?.to ?? 0) + 1)]);
+      act(() => usePlanner.getState().keepSection());
+      expect(lines('flag-selection')).toEqual([]);
+    });
+
+    it('shows the point hovered on the track’s elevation chart', () => {
+      render(<MapView />);
+      act(() => {
+        usePlanner.getState().openTrack('Sunday ride', TRACK);
+        usePlanner.getState().setHoverIndex(50);
+      });
+      expect(screen.getByTestId('hover-dot')).toBeInTheDocument();
+    });
   });
 });

@@ -5,6 +5,7 @@ import { useRouting } from './routing/useRouting';
 import { useUndoShortcuts } from './state/useUndoShortcuts';
 import { useFlagPersistence } from './storage/useFlagPersistence';
 import { useSettingsPersistence } from './storage/useSettingsPersistence';
+import { useTrackCorrection } from './track/useTrackCorrection';
 import { Sidebar } from './ui/Sidebar';
 
 export function App() {
@@ -14,6 +15,7 @@ export function App() {
   useSettingsPersistence();
   useFlagTrace();
   useLoopSearch();
+  useTrackCorrection();
   return (
     <div className="app">
       <MapView />

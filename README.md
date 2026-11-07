@@ -129,7 +129,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 - Profile settings adjust the custom model's weights, e.g. a gravel "off-road preference" slider (0–100) that scales the priority for unpaved surfaces and track grades.
 - Route display: line on the map, distance, elevation gain, estimated time, and a surface breakdown (% asphalt / gravel / ground / unknown).
 - Elevation profile chart, linked to the map on hover.
-- GPX export. GPX import is needed later for milestone 4.
+- GPX export. GPX import came with milestone 2 (below) and is used again in milestone 4.
 
 **Done when:** the user can plan a route, switch profiles and see it change, adjust the gravel slider and see it change, and export a GPX file.
 
@@ -141,6 +141,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 - When routing, convert every flag into a small buffered avoid-polygon and apply it through the custom model's `areas`, limited to the flag's OSM ways so crossing roads stay usable. Flags are avoided strongly (priority × 0.01), not blocked: when there's no way around, the route still uses the flag and the app warns (ADR 0007).
 - Re-route only between the waypoints around the flagged part, so the rest of the route stays the same.
 - Flags apply to **all future routes**, under every profile. Show them on the map as a toggleable layer, and make them editable and deletable.
+- Open a GPX file made elsewhere. The app leaves the track as it is, except: where it runs through flagged sections, it asks about each one, one by one or all at once, whether to reroute around it, and splices the way around into the track (ADR 0010).
 
 **Done when:** flagging a section immediately produces an alternative that avoids it, and a fresh route through the same area also avoids it.
 

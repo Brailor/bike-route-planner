@@ -219,6 +219,42 @@ test.describe('app against the live engine', () => {
     await expect(page.getByRole('alert')).toContainText('still uses a flagged section');
   });
 
+  // A GPX made before a section was flagged: opened again, the section is found and a way around it spliced in.
+  test('an opened GPX track is rerouted around a section flagged since', async ({ page }) => {
+    await openMap(page);
+    await placeEnds(page);
+    await expect(page.getByTestId('stat-distance')).toBeVisible();
+    const exportTrack = async (button: string) => {
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: button }).click();
+      return (await download).path();
+    };
+    const planned = await exportTrack('Export GPX');
+
+    await page.getByRole('button', { name: 'Flag a section' }).click();
+    let done = rerouted(page);
+    await page.getByRole('button', { name: 'Flag & reroute' }).click();
+    await done;
+
+    await page.getByLabel('Open GPX').setInputFiles(planned);
+    await expect(page.getByTestId('track-flag-count')).toContainText(
+      'Runs along 1 flagged section',
+    );
+    const question = page.getByRole('group', { name: 'Flagged section' });
+    done = rerouted(page);
+    await question.getByRole('button', { name: 'Reroute around it' }).click();
+    await done;
+    await expect(page.getByTestId('track-section')).toContainText('Rerouted');
+    await expect(page.getByText('Every section answered.')).toBeVisible();
+
+    // The corrected track, opened again, runs along no flag.
+    const corrected = await exportTrack('Export GPX');
+    await page.getByLabel('Open GPX').setInputFiles(corrected);
+    await expect(
+      page.getByText('This track doesn’t run along any of your flagged sections.'),
+    ).toBeVisible();
+  });
+
   test('a section marked on the map without a route is traced and avoided later', async ({
     page,
   }) => {

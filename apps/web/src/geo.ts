@@ -19,3 +19,24 @@ export function segmentLengthsM(coordinates: readonly (readonly number[])[]): nu
     out.push(distanceM(coordinates[i] ?? [], coordinates[i + 1] ?? []));
   return out;
 }
+
+/**
+ * Where a point falls on the segment a → b: the fraction `t` (0..1) of the way along it, and its distance from the
+ * segment in metres. A local flat approximation, fine over a few hundred metres.
+ */
+export function projectOnSegment(
+  point: readonly number[],
+  a: readonly number[],
+  b: readonly number[],
+): { t: number; distanceM: number } {
+  const [px = 0, py = 0] = point;
+  const kx = distanceM([px - 0.5, py], [px + 0.5, py]); // metres per degree of longitude here
+  const ky = distanceM([px, py - 0.5], [px, py + 0.5]);
+  const [ax = 0, ay = 0] = a;
+  const [bx = 0, by = 0] = b;
+  const [x1, y1, x2, y2] = [(ax - px) * kx, (ay - py) * ky, (bx - px) * kx, (by - py) * ky];
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const t = dx || dy ? Math.min(1, Math.max(0, -(x1 * dx + y1 * dy) / (dx * dx + dy * dy))) : 0;
+  return { t, distanceM: Math.hypot(x1 + t * dx, y1 + t * dy) };
+}

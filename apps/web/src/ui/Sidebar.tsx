@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { usePlanner, type RouteStatus } from '../state/store';
 import { FlagPanel } from './FlagPanel';
 import { LoopPanel } from './LoopPanel';
@@ -5,6 +6,7 @@ import { ProfilePanel } from './ProfilePanel';
 import { RiderPanel } from './RiderPanel';
 import { RouteEnds } from './RouteEnds';
 import { RouteSummary } from './RouteSummary';
+import { OpenTrackButton, TrackPanel } from './TrackPanel';
 import { WorkoutPanel } from './WorkoutPanel';
 
 function StatusMessage({
@@ -14,7 +16,7 @@ function StatusMessage({
 }: {
   status: RouteStatus;
   waypointCount: number;
-  /** Map clicks don't place waypoints right now (marking a flag, or loops on show): their hints would mislead. */
+  /** Map clicks don't place waypoints right now (marking a flag; loops or a track on show): hints would mislead. */
   marking: boolean;
 }) {
   if (status.state === 'error') {
@@ -48,11 +50,13 @@ export function Sidebar() {
   const status = usePlanner((s) => s.status);
   const marking = usePlanner((s) => s.flagDraft !== undefined);
   const loops = usePlanner((s) => s.loops);
+  const track = usePlanner((s) => s.track);
   const clearWaypoints = usePlanner((s) => s.clearWaypoints);
   const undo = usePlanner((s) => s.undo);
   const redo = usePlanner((s) => s.redo);
   const canUndo = usePlanner((s) => s.past.length > 0);
   const canRedo = usePlanner((s) => s.future.length > 0);
+  const [openError, setOpenError] = useState<string>();
 
   return (
     <aside className="sidebar">
@@ -82,8 +86,14 @@ export function Sidebar() {
               Clear
             </button>
           )}
+          <OpenTrackButton onError={setOpenError} />
         </div>
       </header>
+      {openError && (
+        <p className="status status--error" role="alert">
+          {openError}
+        </p>
+      )}
       <RouteEnds />
       <ProfilePanel />
       <RiderPanel />
@@ -91,11 +101,13 @@ export function Sidebar() {
       <StatusMessage
         status={status}
         waypointCount={waypoints.length}
-        marking={marking || loops !== undefined}
+        marking={marking || loops !== undefined || track !== undefined}
       />
       {loops ? (
-        // Loops take the route's place until closed.
+        // Loops, or an opened track, take the route's place until closed.
         <LoopPanel loops={loops} />
+      ) : track ? (
+        <TrackPanel track={track} />
       ) : (
         <>
           {route && waypoints.length >= 2 && <RouteSummary route={route} />}

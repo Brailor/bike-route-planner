@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { sectionBounds } from '../track/reroute';
+import { spliceDetour } from '../track/sections';
+import { at, east, flagOn, metres } from '../test/metres';
 import { fixtureRoute } from '../test/route';
+import type { LonLat } from '../types';
 import { durationWorkout } from '../workouts/workout';
 import { usePlanner, type RankedLoop } from './store';
 
@@ -494,5 +498,152 @@ describe('loop direction', () => {
     state().setReverseError(old, 'late');
     expect(state().loops?.results[0]?.score.total).toBe(0.6);
     expect(state().loops?.reverseError).toBeUndefined();
+  });
+});
+
+describe('opened tracks', () => {
+  // Flags at 200–300 m and 700–800 m along a 1 km track.
+  const TRACK = east(0, 1000);
+  const FIRST = flagOn('first', east(200, 300, 50));
+  const SECOND = flagOn('second', east(700, 800, 50));
+
+  function open() {
+    state().loadFlags([FIRST, SECOND]);
+    state().openTrack('Sunday ride', TRACK);
+    const track = state().track;
+    if (!track) throw new Error('no track');
+    return track;
+  }
+
+  /** The first section rerouted 100 m north, 2 points longer than the stretch it replaces. */
+  function detourFor(track: NonNullable<ReturnType<typeof state>['track']>) {
+    const [section] = track.sections;
+    if (!section) throw new Error('no section');
+    const splice = spliceDetour(
+      track.coordinates,
+      section,
+      sectionBounds(track.sections, 0, track.coordinates.length),
+      [section.from - 1, section.to + 1],
+      [at(150, 100), at(350, 100)],
+    );
+    return { section, splice };
+  }
+
+  it('opens a track with the sections along flags, showing the first', () => {
+    const track = open();
+    expect(track).toMatchObject({ name: 'Sunday ride', current: 0, rerouting: undefined });
+    expect(track.sections.map((s) => s.flagIds)).toEqual([['first'], ['second']]);
+    const [first] = track.sections;
+    const shown = state().mapFocus?.points ?? [];
+    expect(shown[0]?.[0]).toBeCloseTo(TRACK[first?.from ?? -1]?.[0] ?? 0, 6);
+    expect(shown[1]?.[0]).toBeCloseTo(TRACK[first?.to ?? -1]?.[0] ?? 0, 6);
+  });
+
+  it('shows the whole track when it runs along no flag', () => {
+    state().openTrack('Clear', TRACK);
+    expect(state().track?.sections).toEqual([]);
+    expect(state().mapFocus?.points.map(metres)).toEqual([
+      [0, 0],
+      [1000, 0],
+    ]);
+  });
+
+  it('closes loops and flag marking, and a loop search closes it', () => {
+    state().addWaypoint(TRACK[0] as LonLat);
+    state().setWorkout(durationWorkout('1 h', 3600));
+    state().searchLoops();
+    state().startFlagDraft();
+    open();
+    expect(state().loops).toBeUndefined();
+    expect(state().flagDraft).toBeUndefined();
+    state().searchLoops();
+    expect(state().track).toBeUndefined();
+  });
+
+  it('keeps a section and asks about the next', () => {
+    open();
+    state().keepSection();
+    expect(state().track).toMatchObject({ current: 1 });
+    expect(state().track?.sections[0]?.outcome).toBe('kept');
+    expect(state().track?.coordinates).toBe(TRACK);
+    state().keepSection();
+    state().keepSection(); // nothing left to keep
+    expect(state().track?.current).toBe(2);
+    // Every one answered: the whole track comes back into view.
+    expect(state().mapFocus?.points.map(metres)).toEqual([
+      [0, 0],
+      [1000, 0],
+    ]);
+  });
+
+  it('splices a way around in, and moves the later sections with the coordinates', () => {
+    const track = open();
+    const { splice } = detourFor(track);
+    const second = track.sections[1];
+    state().rerouteSections(false);
+    expect(state().track?.rerouting).toBe('one');
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice });
+
+    const after = state().track;
+    expect(after?.coordinates).toBe(splice.coordinates);
+    expect(after?.sections[0]).toMatchObject({
+      from: splice.from,
+      to: splice.to,
+      outcome: 'rerouted',
+    });
+    // Two points replace the stretch; the way north and back adds about 2 × 100 m.
+    expect(after?.sections[0]?.changeM).toBeGreaterThan(150);
+    const shift = splice.coordinates.length - TRACK.length;
+    expect(after?.sections[1]).toEqual({
+      ...second,
+      from: (second?.from ?? 0) + shift,
+      to: (second?.to ?? 0) + shift,
+    });
+    expect(after).toMatchObject({ current: 1, rerouting: undefined });
+    // The next question comes into view.
+    expect(state().mapFocus?.points[0]?.[0]).toBeCloseTo(
+      splice.coordinates[after?.sections[1]?.from ?? -1]?.[0] ?? 0,
+      6,
+    );
+  });
+
+  it('reroutes every section in turn with “all”', () => {
+    const track = open();
+    state().rerouteSections(true);
+    state().setSectionResult(track.id, 0, { outcome: 'no_way_around' });
+    expect(state().track).toMatchObject({ current: 1, rerouting: 'all' });
+    expect(state().track?.sections[0]?.outcome).toBe('no_way_around');
+    expect(state().track?.coordinates).toBe(TRACK);
+    state().setSectionResult(track.id, 1, { outcome: 'no_way_around' });
+    expect(state().track).toMatchObject({ current: 2, rerouting: undefined });
+  });
+
+  it('a failure leaves the question open, and asking again clears the error', () => {
+    const track = open();
+    state().rerouteSections(true);
+    state().setSectionResult(track.id, 0, { outcome: 'failed', error: 'Engine down' });
+    expect(state().track).toMatchObject({ current: 0, rerouting: undefined });
+    expect(state().track?.sections[0]).toMatchObject({ error: 'Engine down' });
+    expect(state().track?.sections[0]?.outcome).toBeUndefined();
+    state().rerouteSections(false);
+    expect(state().track?.sections[0]?.error).toBeUndefined();
+  });
+
+  it('ignores answers to another question, another track, or none asked', () => {
+    const track = open();
+    const { splice } = detourFor(track);
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice }); // not asked
+    state().rerouteSections(false);
+    state().setSectionResult(track.id, 1, { outcome: 'rerouted', splice }); // another section
+    state().setSectionResult('another', 0, { outcome: 'rerouted', splice });
+    expect(state().track?.coordinates).toBe(TRACK);
+    expect(state().track?.current).toBe(0);
+    // Keeping isn't possible while a reroute is running, and rerouting isn't started twice.
+    state().keepSection();
+    state().rerouteSections(true);
+    expect(state().track).toMatchObject({ current: 0, rerouting: 'one' });
+    state().closeTrack();
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice });
+    expect(state().track).toBeUndefined();
   });
 });

@@ -29,6 +29,7 @@ test('plan a route, switch profile, move the slider, export GPX', async ({ page 
 
   // Elevation chart hover is mirrored on the map.
   const chart = page.getByTestId('elevation-chart');
+  await chart.scrollIntoViewIfNeeded(); // the sidebar is taller than the test's window
   const box = await chart.boundingBox();
   if (!box) throw new Error('elevation chart not rendered');
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

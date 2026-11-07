@@ -1,4 +1,4 @@
-import type { FeatureCollection } from 'geojson';
+import type { FeatureCollection, LineString } from 'geojson';
 import type { ExpressionSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -56,6 +56,9 @@ const FLAGS_HIT_LAYER = 'flags-hit';
 
 /** Wide invisible lines over suggested loops, so one is easy to click and select. */
 const LOOPS_HIT_LAYER = 'loops-hit';
+
+/** An opened GPX track: it has no surface details, so it's one colour. */
+const TRACK_COLOR = '#2563eb';
 
 /** Loops other than the selected one, which is drawn in surface colours like a route. */
 const OTHER_LOOP_COLOR = '#7b8794';
@@ -128,6 +131,7 @@ export function MapView() {
   const flagsVisible = usePlanner((s) => s.flagsVisible);
   const editingFlagId = usePlanner((s) => s.editingFlagId);
   const loops = usePlanner((s) => s.loops);
+  const track = usePlanner((s) => s.track);
   const ftpW = usePlanner((s) => riderValue(s.userSettings, 'ftpW'));
   const backgroundChoice = usePlanner((s) => s.userSettings.mapBackground);
   const hillshade = usePlanner((s) => s.userSettings.hillshade ?? false);
@@ -147,16 +151,17 @@ export function MapView() {
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
-  // While loops are on show, they replace the route: it's hidden and the map is frozen apart from picking a loop.
+  // While loops or an opened track are on show, they replace the route: it's hidden and the map is frozen (apart
+  // from picking a loop).
   const showingLoops = loops !== undefined;
-  const runs = useMemo(
-    () => (route && !showingLoops ? surfaceRuns(route) : EMPTY),
-    [route, showingLoops],
-  );
+  const replaced = showingLoops || track !== undefined;
+  const runs = useMemo(() => (route && !replaced ? surfaceRuns(route) : EMPTY), [route, replaced]);
   const coordinates = route?.geometry.coordinates;
   const selectedLoop = loops?.results[loops.selected];
-  // The hover index points into whatever line the elevation chart shows: the selected loop, or the route.
-  const hoverLine = showingLoops ? selectedLoop?.loop.route.geometry.coordinates : coordinates;
+  // The hover index points into whatever line the elevation chart shows: the selected loop, the track, or the route.
+  const hoverLine = showingLoops
+    ? selectedLoop?.loop.route.geometry.coordinates
+    : (track?.coordinates ?? coordinates);
   const hovered = hoverIndex === undefined ? undefined : hoverLine?.[hoverIndex];
   const loopLines = useMemo<FeatureCollection>(
     () => ({
@@ -172,13 +177,29 @@ export function MapView() {
   // Whole lines (not per-surface runs), so arrows are spaced evenly along them.
   const routeLine = useMemo<FeatureCollection>(
     () =>
-      route && !showingLoops
+      route && !replaced
         ? {
             type: 'FeatureCollection',
             features: [{ type: 'Feature', properties: {}, geometry: route.geometry }],
           }
         : EMPTY,
-    [route, showingLoops],
+    [route, replaced],
+  );
+  const trackLine = useMemo<FeatureCollection>(
+    () =>
+      track
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: track.coordinates },
+              },
+            ],
+          }
+        : EMPTY,
+    [track],
   );
   const loopLine = useMemo<FeatureCollection>(
     () =>
@@ -214,8 +235,8 @@ export function MapView() {
   // selection indexes into this route, and map clicks belong to the flag.
   const drafting = flagDraft !== undefined;
   const flagging = flagSelection !== undefined || drafting;
-  /** Waypoints and the route can't be changed: a flag is being picked, or loops are on show. */
-  const frozen = flagging || showingLoops;
+  /** Waypoints and the route can't be changed: a flag is being picked, or loops or a track are on show. */
+  const frozen = flagging || replaced;
   const flagsLayer = flagsVisible ? 'visible' : 'none';
   const flagged = useMemo<FeatureCollection>(
     () => ({
@@ -228,17 +249,24 @@ export function MapView() {
     }),
     [flags, editingFlagId],
   );
-  // The stretch about to be flagged: picked on the route, or traced through the points clicked on the map.
+  // The stretch about to be flagged (picked on the route, or traced through the points clicked on the map), or the
+  // flagged section of an opened track being asked about.
+  const asked = track?.sections[track.current];
   const selected = useMemo<FeatureCollection>(() => {
-    const geometry = flagDraft?.trace
-      ? flagDraft.trace.geometry
-      : coordinates && flagSelection
-        ? selectionGeometry(coordinates, flagSelection)
-        : undefined;
+    const geometry: LineString | undefined = asked
+      ? {
+          type: 'LineString',
+          coordinates: track?.coordinates.slice(asked.from, asked.to + 1) ?? [],
+        }
+      : flagDraft?.trace
+        ? flagDraft.trace.geometry
+        : coordinates && flagSelection
+          ? selectionGeometry(coordinates, flagSelection)
+          : undefined;
     return geometry
       ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] }
       : EMPTY;
-  }, [coordinates, flagSelection, flagDraft]);
+  }, [coordinates, flagSelection, flagDraft, asked, track?.coordinates]);
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
@@ -332,7 +360,7 @@ export function MapView() {
       if (loop) selectLoop(Number(loop.properties.rank));
       return;
     }
-    if (flagging || onMarker(e)) return;
+    if (frozen || onMarker(e)) return;
     // A flag wins over the route beneath it: clicking it opens it in the panel.
     const flag = featureOn(e, FLAGS_HIT_LAYER);
     if (flag) {
@@ -390,7 +418,7 @@ export function MapView() {
       // Expanded (not compact) so the OpenStreetMap attribution required by ODbL is always visible.
       attributionControl={{ compact: false }}
       interactiveLayerIds={[
-        ...(coordinates && !showingLoops ? [ROUTE_HIT_LAYER] : []),
+        ...(coordinates && !replaced ? [ROUTE_HIT_LAYER] : []),
         ...(flagsVisible && !frozen ? [FLAGS_HIT_LAYER] : []),
         ...(showingLoops ? [LOOPS_HIT_LAYER] : []),
       ]}
@@ -403,7 +431,7 @@ export function MapView() {
               ? overLoop
                 ? 'pointer'
                 : 'default'
-              : flagging
+              : frozen
                 ? 'default'
                 : overRoute
                   ? 'grab'
@@ -535,9 +563,24 @@ export function MapView() {
         />
       </Source>
 
+      <Source id="track" type="geojson" data={trackLine}>
+        <Layer
+          id="track-casing"
+          type="line"
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': '#ffffff', 'line-width': 9 }}
+        />
+        <Layer
+          id="track-line"
+          type="line"
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': TRACK_COLOR, 'line-width': 5 }}
+        />
+      </Source>
+
       {arrowsReady && (
         <>
-          <Source id="route-direction" type="geojson" data={routeLine}>
+          <Source id="route-direction" type="geojson" data={track ? trackLine : routeLine}>
             <Layer id="route-arrows" type="symbol" layout={ARROW_LAYOUT} />
           </Source>
           <Source id="loop-direction" type="geojson" data={loopLine}>
@@ -638,30 +681,32 @@ export function MapView() {
         </Marker>
       ))}
 
-      {waypoints.map(([lon, lat], i) => {
-        const label = waypointLabel(i, waypoints.length);
-        return (
-          <Marker
-            key={i}
-            longitude={lon}
-            latitude={lat}
-            draggable={!frozen}
-            onDragEnd={(e: MarkerDragEvent) => moveWaypoint(i, toLonLat(e))}
-            onClick={(e) => {
-              markerClicks.add(e.originalEvent);
-              if (!frozen) removeWaypoint(i);
-            }}
-          >
-            <div
-              className={`waypoint waypoint--${label.kind}`}
-              data-testid="waypoint"
-              title="Drag to move, click to remove"
+      {/* An opened track has no waypoints; the route's are put away with it. */}
+      {!track &&
+        waypoints.map(([lon, lat], i) => {
+          const label = waypointLabel(i, waypoints.length);
+          return (
+            <Marker
+              key={i}
+              longitude={lon}
+              latitude={lat}
+              draggable={!frozen}
+              onDragEnd={(e: MarkerDragEvent) => moveWaypoint(i, toLonLat(e))}
+              onClick={(e) => {
+                markerClicks.add(e.originalEvent);
+                if (!frozen) removeWaypoint(i);
+              }}
             >
-              {label.text}
-            </div>
-          </Marker>
-        );
-      })}
+              <div
+                className={`waypoint waypoint--${label.kind}`}
+                data-testid="waypoint"
+                title="Drag to move, click to remove"
+              >
+                {label.text}
+              </div>
+            </Marker>
+          );
+        })}
     </Map>
   );
 }
