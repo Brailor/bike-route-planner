@@ -25,6 +25,7 @@ import type { LonLat } from '../types';
 import { FLAG_COLOR, SURFACE_COLORS } from '../ui/surfaceColors';
 import { ZONE_COLORS } from '../ui/zoneColors';
 import { LayerSwitcher } from '../ui/LayerSwitcher';
+import { LocateButton } from '../ui/LocateButton';
 import { ARROW_IMAGE, arrowImage } from './arrow';
 import {
   backgrounds,
@@ -148,6 +149,7 @@ export function MapView() {
     moveDraftPoint,
     selectLoop,
     updateUserSettings,
+    showOnMap,
   } = usePlanner.getState();
   const mapRef = useRef<MapRef>(null);
 
@@ -450,6 +452,16 @@ export function MapView() {
       onMouseOut={() => setHoverIndex(undefined)}
     >
       <NavigationControl position="top-right" />
+      <MapControl position="top-right">
+        <LocateButton
+          // A new fix each time: the user may have moved on since the last one.
+          locate={() => currentPosition(navigator.geolocation, { maxAgeMs: 0 })}
+          onLocated={(position) => {
+            setUserLocation(position);
+            showOnMap([position]);
+          }}
+        />
+      </MapControl>
       <MapControl position="top-right">
         <LayerSwitcher
           offered={BACKGROUNDS}

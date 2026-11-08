@@ -263,6 +263,18 @@ describe('MapView opening position', () => {
   });
 });
 
+describe('MapView going to the user', () => {
+  it('flies to a new fix from the map’s button, and marks the user there, wherever they are', async () => {
+    map.flyTo.mockClear();
+    render(<MapView />);
+    vi.mocked(currentPosition).mockClear().mockResolvedValueOnce([13.4, 52.52]); // Berlin
+    await userEvent.click(screen.getByRole('button', { name: 'Go to my location' }));
+    expect(currentPosition).toHaveBeenCalledExactlyOnceWith(undefined, { maxAgeMs: 0 });
+    expect(map.flyTo).toHaveBeenCalledExactlyOnceWith({ center: [13.4, 52.52], zoom: 14 });
+    expect(screen.getByTestId('user-location')).toBeInTheDocument();
+  });
+});
+
 describe('MapView following address search', () => {
   beforeEach(() => {
     map.flyTo.mockClear();

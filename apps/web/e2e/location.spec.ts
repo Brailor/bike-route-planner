@@ -24,6 +24,18 @@ test.describe('inside the supported region', () => {
     expect(lon).toBeCloseTo(15.44, 2);
     expect(lat).toBeCloseTo(47.07, 2);
   });
+
+  test('the location button flies to where the user is now', async ({ page, context }) => {
+    await openMap(page);
+    await expect(page.getByTestId('user-location')).toBeVisible();
+    // Ridden on to Linz since the map opened.
+    await context.setGeolocation({ longitude: 14.29, latitude: 48.31 });
+    await page.getByRole('button', { name: 'Go to my location' }).click();
+    await expect.poll(() => offCentre(page), { timeout: 10_000 }).toBeLessThan(2);
+    const [lon, lat] = await mapCentre(page);
+    expect(lon).toBeCloseTo(14.29, 2);
+    expect(lat).toBeCloseTo(48.31, 2);
+  });
 });
 
 test.describe('outside the supported region', () => {
@@ -38,10 +50,24 @@ test.describe('outside the supported region', () => {
   });
 });
 
+/** How far the you-are-here dot is from the middle of the map, in pixels. */
+async function offCentre(page: Page) {
+  const box = await page.getByTestId('user-location').boundingBox();
+  if (!box) return Infinity;
+  return Math.hypot(box.x + box.width / 2 - CENTRE.x, box.y + box.height / 2 - CENTRE.y);
+}
+
 test('stays on Vienna when location is denied', async ({ page }) => {
   await openMap(page);
   const [lon, lat] = await mapCentre(page);
   expect(lon).toBeCloseTo(INITIAL_VIEW.longitude, 2);
   expect(lat).toBeCloseTo(INITIAL_VIEW.latitude, 2);
+  await expect(page.getByTestId('user-location')).toHaveCount(0);
+});
+
+test('the location button says so when location is denied', async ({ page }) => {
+  await openMap(page);
+  await page.getByRole('button', { name: 'Go to my location' }).click();
+  await expect(page.getByRole('alert')).toContainText('Couldn’t find your location');
   await expect(page.getByTestId('user-location')).toHaveCount(0);
 });

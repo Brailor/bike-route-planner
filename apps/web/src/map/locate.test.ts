@@ -21,14 +21,25 @@ describe('currentPosition', () => {
     const getCurrentPosition = vi.fn((success: PositionCallback) =>
       success({ coords: { longitude: 0, latitude: 0 } } as GeolocationPosition),
     );
-    await currentPosition(
-      { getCurrentPosition, watchPosition: vi.fn(), clearWatch: vi.fn() },
-      1234,
+    const located = { getCurrentPosition, watchPosition: vi.fn(), clearWatch: vi.fn() };
+    await currentPosition(located, { timeoutMs: 1234 });
+    expect(getCurrentPosition).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      expect.any(Function),
+      {
+        timeout: 1234,
+        maximumAge: 600_000,
+      },
     );
-    expect(getCurrentPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function), {
-      timeout: 1234,
-      maximumAge: 600_000,
-    });
+    await currentPosition(located, { maxAgeMs: 0 });
+    expect(getCurrentPosition).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      expect.any(Function),
+      {
+        timeout: 10_000,
+        maximumAge: 0,
+      },
+    );
   });
 
   it('gives up quietly when denied, unavailable or timed out', async () => {

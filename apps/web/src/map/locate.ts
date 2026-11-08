@@ -1,6 +1,6 @@
 import type { LonLat } from '../types';
 
-/** A fix up to this old is good enough to centre the map on. */
+/** A fix up to this old is good enough to centre the map on when it opens. */
 const MAX_AGE_MS = 10 * 60_000;
 
 /**
@@ -9,7 +9,7 @@ const MAX_AGE_MS = 10 * 60_000;
  */
 export function currentPosition(
   geolocation: Geolocation | undefined = navigator.geolocation,
-  timeoutMs = 10_000,
+  { timeoutMs = 10_000, maxAgeMs = MAX_AGE_MS }: { timeoutMs?: number; maxAgeMs?: number } = {},
 ): Promise<LonLat | undefined> {
   return new Promise((resolve) => {
     if (!geolocation) {
@@ -19,7 +19,7 @@ export function currentPosition(
     geolocation.getCurrentPosition(
       ({ coords }) => resolve([coords.longitude, coords.latitude]),
       () => resolve(undefined),
-      { timeout: timeoutMs, maximumAge: MAX_AGE_MS },
+      { timeout: timeoutMs, maximumAge: maxAgeMs },
     );
   });
 }

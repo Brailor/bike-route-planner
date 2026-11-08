@@ -211,6 +211,13 @@ services/routing/
     moved and has no waypoints yet. Otherwise stays on Vienna. A dot marks the user's position either way
   - Unit tests (`locate`, `region`, MapView opening position) and e2e `location.spec.ts` (Graz → centred there;
     Berlin and denied → Vienna). Each condition confirmed to fail a test when removed
+- [x] A map button that goes to the user's location (user's request, 2026-11-08)
+  - `LocateButton` under the zoom controls: asks for a new fix each time (`maximumAge: 0`; a cached one was
+    seconds old in the e2e but can be kilometres behind a rider), moves the dot there and flies there as for a
+    searched place (zoom 14), outside the supported region too. While locating it's disabled; when the browser
+    can't tell (denied, no fix in 10 s) a note says so until the next click, a click away or Escape
+  - Component tests, a MapView test and e2e in `location.spec.ts` (moved on to Linz → centred there; denied → the
+    note). Each rule confirmed to fail a test when removed
 - [x] `Geocoder` adapter + Photon implementation (public API for now), dev proxy `/geo`
   - ADR 0006. `geocoding/types.ts` + `geocoding/photon/` (request, response, `PhotonGeocoder`). Region-limited
     (`bbox`), ranking point rounded to ~1 km, queries under 3 characters not sent, identical-looking results merged;

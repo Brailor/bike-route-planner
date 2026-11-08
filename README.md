@@ -123,7 +123,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 ### M1 — Profiles + core routing
 
 - Map with click-to-add waypoints (start, end and intermediate), draggable.
-- The map opens on the user's location (browser geolocation) when it's inside the supported region, and on Vienna otherwise (location denied, unavailable or outside the region). The location stays in the browser.
+- The map opens on the user's location (browser geolocation) when it's inside the supported region, and on Vienna otherwise (location denied, unavailable or outside the region). A map button goes to the user's location at any time. The location stays in the browser.
 - Start and destination can also be entered as addresses, with autocomplete. What the user types, plus the map centre for ranking, goes to the geocoder (Photon).
 - Profile switcher: **road / gravel / MTB**. Each profile is a base custom model in `services/routing/models/`.
 - Profile settings adjust the custom model's weights, e.g. a gravel "off-road preference" slider (0–100) that scales the priority for unpaved surfaces and track grades.

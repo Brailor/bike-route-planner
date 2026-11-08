@@ -637,7 +637,8 @@ body,
   position: relative;
 }
 
-.layers__toggle {
+.layers__toggle,
+.map-button {
   display: grid;
   place-items: center;
   width: 29px;
@@ -651,8 +652,32 @@ body,
   cursor: pointer;
 }
 
-.layers__toggle:hover {
+.layers__toggle:hover,
+.map-button:hover:not(:disabled) {
   background: #f2f2f2;
+}
+
+.map-button:disabled {
+  color: var(--muted);
+  cursor: progress;
+}
+
+.locate {
+  position: relative;
+}
+
+.locate__note {
+  position: absolute;
+  top: 0;
+  right: 37px;
+  width: max-content;
+  max-width: 220px;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+  font-size: 13px;
 }
 
 .layers__panel {
