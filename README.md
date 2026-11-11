@@ -141,7 +141,7 @@ The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to t
 - When routing, convert every flag into a small buffered avoid-polygon and apply it through the custom model's `areas`, limited to the flag's OSM ways so crossing roads stay usable. Flags are avoided strongly (priority × 0.01), not blocked: when there's no way around, the route still uses the flag and the app warns (ADR 0007).
 - Re-route only between the waypoints around the flagged part, so the rest of the route stays the same.
 - Flags apply to **all future routes**, under every profile. Show them on the map as a toggleable layer, and make them editable and deletable.
-- Open a GPX file made elsewhere. The app leaves the track as it is, except: where it runs through flagged sections, it asks about each one, one by one or all at once, whether to reroute around it, and splices the way around into the track (ADR 0010).
+- Open a GPX file made elsewhere. The app leaves the track as it is, except: where it runs through flagged sections, it asks about each one, one by one or all at once, whether to reroute around it, and splices the way around into the track (ADR 0010). A file without elevation gets it from the same elevation tiles as the hillshade, so the track still has an elevation profile (ADR 0011). Its surfaces come from matching it to the roads it runs along (ADR 0012).
 
 **Done when:** flagging a section immediately produces an alternative that avoids it, and a fresh route through the same area also avoids it.
 

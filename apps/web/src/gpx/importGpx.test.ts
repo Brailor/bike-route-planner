@@ -22,11 +22,22 @@ describe('parseGpx', () => {
     ]);
   });
 
-  it('drops elevation unless every point has one', () => {
+  it('fills in points without elevation from their neighbours', () => {
     const { coordinates } = parseGpx(
       gpx(`<trk><trkseg>
-        <trkpt lat="48.1" lon="16.1"><ele>200</ele></trkpt><trkpt lat="48.2" lon="16.2"/>
+        <trkpt lat="48.1" lon="16.1"><ele>200</ele></trkpt><trkpt lat="48.1" lon="16.2"/>
+        <trkpt lat="48.1" lon="16.3"><ele>220</ele></trkpt>
       </trkseg></trk>`),
+      'ride.gpx',
+    );
+    expect(coordinates.map((p) => p[2])).toEqual([200, expect.closeTo(210, 0), 220]);
+  });
+
+  it('leaves a track without any elevation without it', () => {
+    const { coordinates } = parseGpx(
+      gpx(
+        `<trk><trkseg><trkpt lat="48.1" lon="16.1"/><trkpt lat="48.2" lon="16.2"/></trkseg></trk>`,
+      ),
       'ride.gpx',
     );
     expect(coordinates).toEqual([

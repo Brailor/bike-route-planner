@@ -12,6 +12,7 @@ function fakeEngine() {
   const engine: RoutingEngine = {
     route: () => Promise.reject(new Error('not used')),
     roundTrip: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
     trace: (points, signal) => {
       calls.push({ points, signal });
       return new Promise((resolve, reject) =>

@@ -67,7 +67,9 @@ export function perSegment<T>(spans: readonly Span<T>[], segmentCount: number, f
 }
 
 /** Surface class of each geometry segment. */
-export function segmentSurfaces(route: RouteResult): SurfaceClass[] {
+export function segmentSurfaces(
+  route: Pick<RouteResult, 'geometry' | 'attributes'>,
+): SurfaceClass[] {
   const n = Math.max(0, route.geometry.coordinates.length - 1);
   const surface = perSegment(route.attributes.surface, n, 'missing');
   const roadClass = perSegment(route.attributes.roadClass, n, 'missing');
@@ -79,7 +81,9 @@ export function segmentSurfaces(route: RouteResult): SurfaceClass[] {
 
 export type SurfaceBreakdown = Record<SurfaceCategory, { meters: number; inferredMeters: number }>;
 
-export function surfaceBreakdown(route: RouteResult): SurfaceBreakdown {
+export function surfaceBreakdown(
+  route: Pick<RouteResult, 'geometry' | 'attributes'>,
+): SurfaceBreakdown {
   const result = Object.fromEntries(
     SURFACE_CATEGORIES.map((c) => [c, { meters: 0, inferredMeters: 0 }]),
   ) as SurfaceBreakdown;

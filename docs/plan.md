@@ -306,8 +306,24 @@ flags are avoided strongly rather than blocked, and when a route still has to us
   - The header's Clear also removes an opened track (user's request, 2026-11-07): the panel's Close sits below the
     other panels, and Clear didn't show without a route. Waypoints come back with Undo, the track doesn't (open the
     file again)
-  - Not done: surfaces and ride time for an opened track (would need map matching); the track isn't kept across a
-    reload
+  - An elevation profile for every opened track (user's report, 2026-11-11: no profile after opening a GPX; ADR 0011).
+    It had shown only when every point in the file had `<ele>`. Now points missing one are filled in from their
+    neighbours, and a file with none has it looked up in Mapterhorn's tiles (zoom 12, the hillshade's tiles) while
+    "Opening…" shows; the panel says so. If that fails, it opens without a profile and says why. Checked once against
+    the real tiles: Heiligenstadt → Kahlenberg came out at 197–478 m (summit 484 m). Unit tests (gap filling, tile
+    maths, sampling, the fallbacks), panel tests (busy, captions, latest file wins), e2e (stubbed tile → 300 m chart;
+    tile server down → no profile). Each rule confirmed to fail a test when removed
+  - Surfaces for every opened track (user's report, 2026-11-11: an opened GPX showed no paved/gravel breakdown;
+    ADR 0012). GraphHopper's `/match` finds the roads it runs along, in the background ("Finding the surfaces…");
+    each of the track's own segments takes the surface of the matched road beside it, and the track is drawn in
+    surface colours like a route. A way around brings its own surfaces. Live: 5 routes (Vienna, Lobau, Graz, Győr,
+    22–61 km) as GPS-like traces got 98.5–99.4% of their length in the same category as the route; matching took
+    0.6–6 s. Unit tests (adapter with a recorded `/match` fixture, transfer incl. noise, laps, out and back, long
+    stretches off the road; splicing; store; hook; panel; map), e2e (stubbed match, through a reroute),
+    `e2e:live` (an exported route opened again has the route's breakdown within 3 points; the fixture still
+    matches the engine). Each rule confirmed to fail a test when removed
+  - Not done: ride time for an opened track (the surfaces and elevation it needs are there now); the track isn't
+    kept across a reload
 
 ### M3: Workout-matched routes
 

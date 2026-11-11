@@ -1,5 +1,6 @@
 // Reading a GPX file someone already has: its track, as it is. GPX is lat/lon; the conversion to [lon, lat, ele?]
 // happens here.
+import { fillGaps } from '../track/elevation';
 
 /** A file that isn't a usable GPX track; the message is shown to the user. */
 export class GpxImportError extends Error {
@@ -11,7 +12,10 @@ export class GpxImportError extends Error {
 
 export interface ImportedGpx {
   name: string;
-  /** [lon, lat, ele?]. Elevation only when every point has one, so a profile never has gaps. */
+  /**
+   * [lon, lat, ele?]. Elevation on every point or none, so a profile never has gaps: points the file gives none are
+   * filled in from their neighbours.
+   */
   coordinates: number[][];
 }
 
@@ -42,14 +46,14 @@ export function parseGpx(xml: string, fileName: string): ImportedGpx {
   const trackPoints = children(doc, 'trkpt');
   const points = (trackPoints.length ? trackPoints : children(doc, 'rtept')).map(position);
   if (points.length < 2) throw new GpxImportError('This GPX file has no track to follow.');
-  const withEle = points.every((p) => p.length > 2);
+  const coordinates = fillGaps(points) ?? points;
   const metadata = children(doc, 'metadata')[0];
   const track = children(doc, 'trk')[0] ?? children(doc, 'rte')[0];
   const name =
     (metadata && text(metadata, 'name')) ??
     (track && text(track, 'name')) ??
     fileName.replace(/\.gpx$/i, '');
-  return { name, coordinates: withEle ? points : points.map(([lon = 0, lat = 0]) => [lon, lat]) };
+  return { name, coordinates };
 }
 
 export async function importGpx(file: File): Promise<ImportedGpx> {

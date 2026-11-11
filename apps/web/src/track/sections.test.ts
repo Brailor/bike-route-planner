@@ -243,15 +243,18 @@ describe('spliceDetour', () => {
     expect(coordinates.map(metres)).toContainEqual([0, 200]);
   });
 
-  it('tells which of the old track it kept either side', () => {
+  it('tells which of the old track it kept either side, and which of the way around it used', () => {
     const detour = [...east(350, 300), at(300, 200), at(700, 200), ...east(700, 650)];
+    // The way around from where it turns off at 300 m (its 6th point) to where it rejoins at 700 m (its 9th).
     expect(spliceDetour(TRACK, SECTION, BOUNDS, [35, 65], detour)).toMatchObject({
       kept: 30,
       resumed: 70,
+      detourFrom: 5,
+      detourTo: 8,
     });
     expect(
       spliceDetour(TRACK, SECTION, BOUNDS, [35, 65], [at(350, 20), at(650, 20)]),
-    ).toMatchObject({ kept: 35, resumed: 65 });
+    ).toMatchObject({ kept: 35, resumed: 65, detourFrom: 0, detourTo: 1 });
   });
 
   it('leaves the track it was given alone', () => {

@@ -6,8 +6,10 @@ import type { LoopCandidate } from '../loops/candidates';
 import type { LoopScore } from '../loops/score';
 import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
-import type { RouteResult, RoutingError } from '../routing/types';
+import type { RouteAttributes, RouteResult, RoutingError } from '../routing/types';
+import type { TrackElevation } from '../track/elevation';
 import type { Reroute } from '../track/reroute';
+import { spliceAttributes } from '../track/roads';
 import { cumulativeM, flaggedSections, type FlaggedSection } from '../track/sections';
 import type { AvoidFlag, LonLat, Profile, ProfileSettings, UserSettings, Workout } from '../types';
 
@@ -71,6 +73,14 @@ export interface ImportedTrack {
   name: string;
   /** [lon, lat, ele?], with the ways around spliced in. */
   coordinates: number[][];
+  /** Where the elevation came from; with 'none', the coordinates have none. */
+  elevation: TrackElevation;
+  /**
+   * The roads it runs along, per segment of `coordinates` (ADR 0012): matched once it's open, then kept in step with
+   * the ways around. `undefined` until matched, or when matching failed (`roadsError`).
+   */
+  roads: RouteAttributes | undefined;
+  roadsError: string | undefined;
   /** Where it runs along flags, in track order. A rerouted section becomes its way around. */
   sections: TrackSection[];
   /** The section being asked about; `sections.length` once each one has been answered. */
@@ -190,7 +200,7 @@ interface PlannerState {
   setReverseError: (request: LoopSearch['request'], message: string) => void;
   closeLoops: () => void;
   /** Shows a track from a file and finds where it runs along flags. Brings the first one into view, if any. */
-  openTrack: (name: string, coordinates: number[][]) => void;
+  openTrack: (name: string, coordinates: number[][], elevation: TrackElevation) => void;
   /** Leaves the section being asked about as it is, and asks about the next. */
   keepSection: () => void;
   /** Reroutes around the section being asked about, or around it and every one after it (useTrackCorrection). */
@@ -200,6 +210,12 @@ interface PlannerState {
     id: string,
     index: number,
     result: Reroute | { outcome: 'failed'; error: string },
+  ) => void;
+  /** The roads the track's `coordinates` run along, or why they couldn't be matched; ignored once they've changed. */
+  setTrackRoads: (
+    id: string,
+    coordinates: number[][],
+    result: { roads: RouteAttributes } | { error: string },
   ) => void;
   closeTrack: () => void;
   setRouteLoading: () => void;
@@ -463,12 +479,15 @@ export const usePlanner = create<PlannerState>()((set, get) => {
           : s,
       ),
     closeLoops: () => set((s) => (s.loops ? { loops: undefined, hoverIndex: undefined } : s)),
-    openTrack: (name, coordinates) =>
+    openTrack: (name, coordinates, elevation) =>
       set((s) => {
         const track: ImportedTrack = {
           id: crypto.randomUUID(),
           name,
           coordinates,
+          elevation,
+          roads: undefined,
+          roadsError: undefined,
           sections: flaggedSections(coordinates, s.flags),
           current: 0,
           rerouting: undefined,
@@ -525,12 +544,15 @@ export const usePlanner = create<PlannerState>()((set, get) => {
               rerouting: undefined,
             },
           };
-        let { coordinates } = track;
+        let { coordinates, roads, roadsError } = track;
         let sections: TrackSection[];
         if (result.outcome === 'rerouted') {
           const { splice } = result;
           const shift = splice.coordinates.length - coordinates.length;
           const changeM = trackLengthM(splice.coordinates) - trackLengthM(coordinates);
+          // The way around brings its own roads. Without the track's yet, the new track is matched afresh.
+          roads = roads && spliceAttributes(roads, coordinates.length, result.detour, splice);
+          roadsError = undefined;
           coordinates = splice.coordinates;
           // The section becomes its way around; later ones move with the coordinates.
           sections = track.sections.map((section, i) =>
@@ -550,12 +572,26 @@ export const usePlanner = create<PlannerState>()((set, get) => {
         const next: ImportedTrack = {
           ...track,
           coordinates,
+          roads,
+          roadsError,
           sections,
           current,
           rerouting: track.rerouting === 'all' && more ? 'all' : undefined,
         };
         return { track: next, hoverIndex: undefined, mapFocus: trackFocus(next) };
       }),
+    setTrackRoads: (id, coordinates, result) =>
+      set((s) =>
+        s.track?.id === id && s.track.coordinates === coordinates
+          ? {
+              track: {
+                ...s.track,
+                roads: 'roads' in result ? result.roads : undefined,
+                roadsError: 'error' in result ? result.error : undefined,
+              },
+            }
+          : s,
+      ),
     closeTrack: () => set((s) => (s.track ? { track: undefined, hoverIndex: undefined } : s)),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>

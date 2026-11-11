@@ -19,6 +19,7 @@ function engine(answer: (request: RouteRequest) => RouteResult) {
     },
     trace: () => Promise.reject(new Error('not used')),
     roundTrip: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
   };
   return { fake, requests };
 }
@@ -80,16 +81,21 @@ describe('rerouteSection', () => {
     expect(requests.every((r) => r.settings === SETTINGS && r.flags?.[0] === FLAG)).toBe(true);
   });
 
-  it('splices in the cheapest way around', async () => {
+  it('splices in the cheapest way around, and hands it over for its attributes', async () => {
     // Close in, the only way around is 1 km out; from 300 m out, one 100 m out rejoins the track.
-    const { fake } = engine((r) =>
-      northOf(r, metres(r.waypoints[0] ?? [0, 0])[0] === 350 ? 1000 : 100),
-    );
+    const answers: RouteResult[] = [];
+    const { fake } = engine((r) => {
+      const answer = northOf(r, metres(r.waypoints[0] ?? [0, 0])[0] === 350 ? 1000 : 100);
+      answers.push(answer);
+      return answer;
+    });
     const result = await rerouteSection(fake, TRACK, SECTIONS, 0, {
       settings: SETTINGS,
       flags: [FLAG],
     });
     if (result.outcome !== 'rerouted') throw new Error(result.outcome);
+    expect(answers).toContain(result.detour);
+    expect(result.detour.geometry.coordinates.map(metres)).toContainEqual([100, 100]);
     const { coordinates, from, to } = result.splice;
     expect(coordinates.slice(from, to + 1).map(metres)).toEqual([
       [100, 0],
@@ -147,6 +153,7 @@ describe('rerouteSection', () => {
       route: (_, s) => Promise.reject(new Error(s === signal ? 'no route' : 'wrong signal')),
       trace: () => Promise.reject(new Error('not used')),
       roundTrip: () => Promise.reject(new Error('not used')),
+      match: () => Promise.reject(new Error('not used')),
     };
     await expect(
       rerouteSection(failing, TRACK, SECTIONS, 0, { settings: SETTINGS, flags: [FLAG] }, signal),

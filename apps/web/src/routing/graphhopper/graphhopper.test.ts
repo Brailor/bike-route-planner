@@ -3,16 +3,20 @@ import { distanceM } from '../../geo';
 import { RoutingError, type RoundTripRequest, type RouteRequest } from '../types';
 import flaggedStartFixture from './__fixtures__/gravel-flagged-start.json';
 import flaggedFixture from './__fixtures__/gravel-flagged.json';
+import matchFixture from './__fixtures__/gravel-match.json';
 import gravelFixture from './__fixtures__/gravel-offroad-80.json';
 import outOfBoundsFixture from './__fixtures__/out-of-bounds.json';
 import roadViaFixture from './__fixtures__/road-via.json';
 import roundTripFixture from './__fixtures__/gravel-round-trip.json';
 import { GraphHopperEngine } from './GraphHopperEngine';
 import {
+  buildMatchRequest,
   buildRoundTripRequestBody,
   buildRouteRequestBody,
   buildTraceRequestBody,
   DETAILS,
+  MATCH_GPS_ACCURACY_M,
+  MATCH_PROFILE,
   TRACE_DISTANCE_INFLUENCE,
   TRACE_PROFILE,
   type GhRouteRequestBody,
@@ -189,6 +193,57 @@ describe('GraphHopperEngine', () => {
       vi.fn<typeof fetch>().mockRejectedValue(abortError),
     );
     await expect(engine.route(request, controller.signal)).rejects.toBe(abortError);
+  });
+});
+
+describe('matching a track', () => {
+  it('sends the track as GPX, lat/lon in GPX order, and the rest in the query', () => {
+    const { query, gpx } = buildMatchRequest([
+      [16.5, 48.2, 160],
+      [16.6, 48.25],
+    ]);
+    const params = new URLSearchParams(query);
+    expect(params.get('profile')).toBe(MATCH_PROFILE);
+    expect(params.get('gps_accuracy')).toBe(String(MATCH_GPS_ACCURACY_M));
+    expect(params.get('points_encoded')).toBe('false');
+    expect(params.getAll('details')).toEqual([...DETAILS]);
+    const points = new DOMParser()
+      .parseFromString(gpx, 'application/xml')
+      .getElementsByTagName('trkpt');
+    expect([...points].map((p) => [p.getAttribute('lon'), p.getAttribute('lat')])).toEqual([
+      ['16.5', '48.2'],
+      ['16.6', '48.25'],
+    ]);
+  });
+
+  it('posts it to <baseUrl>/match, and maps the matched path like a route', async () => {
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(matchFixture.response), { status: 200 }));
+    const matched = await new GraphHopperEngine('/gh', fetchFn).match(matchFixture.input);
+    const [url, init] = fetchFn.mock.calls[0]!;
+    expect(url).toBe(`/gh/match?${matchFixture.request.query}`);
+    expect(init?.body).toBe(matchFixture.request.gpx);
+    expect(new Headers(init?.headers).get('Content-Type')).toBe('application/gpx+xml');
+    // The recorded route, matched back to the roads it came from.
+    expect(matched.distanceM).toBeCloseTo(3444, 0);
+    expect(matched.attributes.surface.map((s) => s.value)).toEqual(
+      expect.arrayContaining(['asphalt', 'dirt']),
+    );
+    expect(matched.attributes.osmWayId.length).toBeGreaterThan(1);
+  });
+
+  it('reports a track off the road network as an engine error', async () => {
+    const message = 'Sequence is broken for submitted track at initial time step.';
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ message }), { status: 400 }));
+    await expect(
+      new GraphHopperEngine('/gh', fetchFn).match([
+        [2.35, 48.85],
+        [2.351, 48.851],
+      ]),
+    ).rejects.toMatchObject({ kind: 'bad_request', message });
   });
 });
 

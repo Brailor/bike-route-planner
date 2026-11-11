@@ -14,6 +14,7 @@ function fakeEngine() {
   const engine: RoutingEngine = {
     trace: () => Promise.reject(new Error('not used')),
     roundTrip: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
     route: (request, signal) => {
       calls.push({ request, signal });
       return new Promise((resolve) => {
@@ -90,6 +91,7 @@ describe('useRouting', () => {
       route: () => Promise.reject(new RoutingError('down', 'unavailable')),
       trace: () => Promise.reject(new Error('not used')),
       roundTrip: () => Promise.reject(new Error('not used')),
+      match: () => Promise.reject(new Error('not used')),
     };
     renderHook(() => useRouting(engine));
     act(() => {

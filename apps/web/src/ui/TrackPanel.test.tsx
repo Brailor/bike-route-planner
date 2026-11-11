@@ -2,12 +2,18 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { usePlanner } from '../state/store';
-import { at, east, flagOn } from '../test/metres';
+import { at, east, flagOn, routeAlong } from '../test/metres';
+import type { DemTile, ElevationTiles } from '../track/elevation';
 import { spliceDetour } from '../track/sections';
 import { Sidebar } from './Sidebar';
 
 vi.mock('../gpx/download', () => ({ downloadGpx: vi.fn() }));
 const { downloadGpx } = await import('../gpx/download');
+// The tile server can't be reached unless a test says otherwise: tracks without elevation open without.
+const tile = vi.hoisted(() =>
+  vi.fn<ElevationTiles['tile']>(() => Promise.reject(new Error('offline'))),
+);
+vi.mock('../track/mapterhorn', () => ({ mapterhornTiles: { tile } }));
 
 const state = () => usePlanner.getState();
 const TRACK = east(0, 1000);
@@ -105,7 +111,8 @@ describe('opening a GPX track', () => {
       [14, 36],
       [at(140, 100), at(360, 100)],
     );
-    act(() => state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice }));
+    const detour = routeAlong([at(140, 100), at(360, 100)], 99);
+    act(() => state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour }));
     expect(screen.getAllByTestId('track-section')[0]).toHaveTextContent('Rerouted, +200 m');
 
     await user.click(within(question()).getByRole('button', { name: 'Reroute around it' }));
@@ -148,5 +155,105 @@ describe('opening a GPX track', () => {
     expect(state().track).toBeUndefined();
     expect(screen.queryByRole('region', { name: 'Opened track' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+  });
+});
+
+/** A 2×2 terrarium tile 300 m up everywhere. */
+const FLAT_300: DemTile = {
+  width: 2,
+  height: 2,
+  data: new Uint8ClampedArray([129, 44, 0, 255, 129, 44, 0, 255, 129, 44, 0, 255, 129, 44, 0, 255]),
+};
+
+describe('elevation for an opened track', () => {
+  it('looks it up when the file has none, and says where it’s from', async () => {
+    let answer: (t: DemTile) => void = () => {};
+    tile.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.upload(screen.getByLabelText('Open GPX'), gpx(TRACK));
+    expect(screen.getByText('Opening…')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Opened track' })).not.toBeInTheDocument();
+    await act(async () => {
+      answer(FLAT_300);
+      await Promise.resolve();
+    });
+    await screen.findByRole('region', { name: 'Opened track' });
+    expect(screen.getByText('Open GPX')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Elevation profile, 300 m to 300 m' })).toBeVisible();
+    expect(screen.getByTestId('track-elevation')).toHaveTextContent(
+      'The file has no elevation; it’s from Mapterhorn.',
+    );
+    expect(state().track?.elevation).toBe('looked_up');
+  });
+
+  it('says why there’s no profile when it can’t be looked up', async () => {
+    await openTrack();
+    expect(screen.queryByTestId('elevation-chart')).not.toBeInTheDocument();
+    expect(screen.getByTestId('track-elevation')).toHaveTextContent(
+      'No elevation profile: the file has no elevation, and it couldn’t be looked up.',
+    );
+  });
+
+  it('opens the file picked last, when an earlier one is still being looked up', async () => {
+    let first: (t: DemTile) => void = () => {};
+    tile.mockImplementationOnce(() => new Promise((resolve) => (first = resolve)));
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.upload(screen.getByLabelText('Open GPX'), gpx(TRACK));
+    await user.upload(
+      screen.getByLabelText('Open GPX'),
+      new File(
+        [
+          `<gpx><trk><name>Later ride</name><trkseg><trkpt lat="48.2" lon="16.36"><ele>200</ele></trkpt>` +
+            `<trkpt lat="48.21" lon="16.36"><ele>210</ele></trkpt></trkseg></trk></gpx>`,
+        ],
+        'later.gpx',
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('track-name')).toHaveTextContent('Later ride'));
+    await act(async () => {
+      first(FLAT_300);
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('track-name')).toHaveTextContent('Later ride');
+    expect(screen.queryByTestId('track-elevation')).not.toBeInTheDocument();
+    expect(screen.getByText('Open GPX')).toBeInTheDocument();
+  });
+});
+
+describe('surfaces of an opened track', () => {
+  it('shows them once the roads are matched, and that they’re being found until then', async () => {
+    await openTrack();
+    expect(screen.getByTestId('track-roads')).toHaveTextContent('Finding the surfaces…');
+    const track = state().track!;
+    const half = (track.coordinates.length - 1) / 2;
+    act(() =>
+      state().setTrackRoads(track.id, track.coordinates, {
+        roads: {
+          surface: [
+            { from: 0, to: half, value: 'asphalt' },
+            { from: half, to: track.coordinates.length - 1, value: 'gravel' },
+          ],
+          roadClass: [],
+          trackType: [],
+          osmWayId: [],
+          crossing: [],
+        },
+      }),
+    );
+    expect(screen.queryByTestId('track-roads')).not.toBeInTheDocument();
+    expect(screen.getByTestId('surface-paved')).toHaveTextContent('50%');
+    expect(screen.getByTestId('surface-gravel')).toHaveTextContent('50%');
+  });
+
+  it('says why they’re unknown', async () => {
+    await openTrack();
+    const track = state().track!;
+    act(() =>
+      state().setTrackRoads(track.id, track.coordinates, { error: 'Surfaces unknown: no match.' }),
+    );
+    expect(screen.getByTestId('track-roads')).toHaveTextContent('Surfaces unknown: no match.');
+    expect(screen.queryByLabelText('Surface breakdown')).not.toBeInTheDocument();
   });
 });

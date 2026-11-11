@@ -92,8 +92,21 @@ vi.mock('react-map-gl/maplibre', () => ({
       {children}
     </div>
   ),
-  Layer: ({ id, beforeId }: { id: string; beforeId?: string }) => (
-    <span data-testid="layer" data-id={id} data-before={beforeId} />
+  Layer: ({
+    id,
+    beforeId,
+    layout,
+  }: {
+    id: string;
+    beforeId?: string;
+    layout?: { visibility?: string };
+  }) => (
+    <span
+      data-testid="layer"
+      data-id={id}
+      data-before={beforeId}
+      data-visibility={layout?.visibility}
+    />
   ),
   // A control's element goes where maplibre would put it: into the map.
   useControl: (make: () => { onAdd: () => HTMLElement; onRemove: () => void }) => {
@@ -335,7 +348,7 @@ describe('MapView following address search', () => {
       expect(lines('route')).not.toEqual([]);
       expect(screen.getAllByTestId('waypoint')).toHaveLength(2);
 
-      act(() => usePlanner.getState().openTrack('Sunday ride', TRACK));
+      act(() => usePlanner.getState().openTrack('Sunday ride', TRACK, 'none'));
       expect(lines('route')).toEqual([]);
       expect(lines('track')).toEqual([TRACK]);
       expect(lines('route-direction')).toEqual([TRACK]);
@@ -347,11 +360,46 @@ describe('MapView following address search', () => {
       expect(screen.getAllByTestId('waypoint')).toHaveLength(2);
     });
 
+    it('draws it in surface colours once its roads are known, in place of its one colour', () => {
+      render(<MapView />);
+      act(() => usePlanner.getState().openTrack('Sunday ride', TRACK, 'none'));
+      const trackLine = () =>
+        screen.getAllByTestId('layer').find((el) => el.dataset.id === 'track-line');
+      expect(lines('track-surface')).toEqual([]);
+      expect(trackLine()).toHaveAttribute('data-visibility', 'visible');
+
+      const { track } = usePlanner.getState();
+      const half = (TRACK.length - 1) / 2;
+      act(() =>
+        usePlanner.getState().setTrackRoads(track!.id, track!.coordinates, {
+          roads: {
+            surface: [
+              { from: 0, to: half, value: 'asphalt' },
+              { from: half, to: TRACK.length - 1, value: 'gravel' },
+            ],
+            roadClass: [],
+            trackType: [],
+            osmWayId: [],
+            crossing: [],
+          },
+        }),
+      );
+      const source = screen
+        .getAllByTestId('source')
+        .find((el) => el.dataset.id === 'track-surface');
+      const runs = JSON.parse(source?.dataset.data ?? 'null') as {
+        features: { properties: { category: string }; geometry: { coordinates: number[][] } }[];
+      };
+      expect(runs.features.map((f) => f.properties.category)).toEqual(['paved', 'gravel']);
+      expect(runs.features.flatMap((f) => f.geometry.coordinates)).toHaveLength(TRACK.length + 1);
+      expect(trackLine()).toHaveAttribute('data-visibility', 'none');
+    });
+
     it('marks the flagged section being asked about', () => {
       render(<MapView />);
       act(() => {
         usePlanner.getState().loadFlags([flagOn('f', east(400, 600, 50))]);
-        usePlanner.getState().openTrack('Sunday ride', TRACK);
+        usePlanner.getState().openTrack('Sunday ride', TRACK, 'none');
       });
       const section = usePlanner.getState().track?.sections[0];
       expect(lines('flag-selection')).toEqual([TRACK.slice(section?.from, (section?.to ?? 0) + 1)]);
@@ -362,7 +410,7 @@ describe('MapView following address search', () => {
     it('shows the point hovered on the track’s elevation chart', () => {
       render(<MapView />);
       act(() => {
-        usePlanner.getState().openTrack('Sunday ride', TRACK);
+        usePlanner.getState().openTrack('Sunday ride', TRACK, 'none');
         usePlanner.getState().setHoverIndex(50);
       });
       expect(screen.getByTestId('hover-dot')).toBeInTheDocument();

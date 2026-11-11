@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { crc32, deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { openMap, straightRoute, stubRouting, type RouteBody } from './support';
 
@@ -11,11 +12,11 @@ const along = (from: number, to: number, step = 10) =>
   Array.from({ length: (to - from) / step + 1 }, (_, i) => at(from + i * step));
 const TRACK = along(0, 2000);
 
-const gpx = (points: number[][]) =>
+const gpx = (points: number[][], ele = true) =>
   `<?xml version="1.0"?>
 <gpx version="1.1" creator="another planner" xmlns="http://www.topografix.com/GPX/1/1">
   <trk><name>Danube ride</name><trkseg>
-${points.map(([lon, lat]) => `    <trkpt lat="${lat}" lon="${lon}"><ele>160</ele></trkpt>`).join('\n')}
+${points.map(([lon, lat]) => `    <trkpt lat="${lat}" lon="${lon}">${ele ? '<ele>160</ele>' : ''}</trkpt>`).join('\n')}
   </trkseg></trk>
 </gpx>`;
 
@@ -57,16 +58,63 @@ const aroundTo = (body: RouteBody) => {
   });
 };
 
-async function openTrack(page: Page) {
+async function openTrack(page: Page, { ele = true } = {}) {
   await page.getByLabel('Open GPX').setInputFiles({
     name: 'danube.gpx',
     mimeType: 'application/gpx+xml',
-    buffer: Buffer.from(gpx(TRACK)),
+    buffer: Buffer.from(gpx(TRACK, ele)),
   });
   await expect(page.getByTestId('track-name')).toHaveText('Danube ride');
 }
 
 const question = (page: Page) => page.getByRole('group', { name: 'Flagged section' });
+
+/**
+ * Answers map matching (/gh/match) with the track as sent, on gravel for its first half and asphalt after; returns
+ * how many tracks were matched.
+ */
+async function stubMatch(page: Page) {
+  const matched: number[] = [];
+  await page.route('**/gh/match?*', async (route) => {
+    const gpx = route.request().postData() ?? '';
+    const coordinates = [...gpx.matchAll(/lat="([-\d.]+)" lon="([-\d.]+)"/g)].map((m) => [
+      Number(m[2]),
+      Number(m[1]),
+    ]);
+    matched.push(coordinates.length);
+    const n = coordinates.length - 1;
+    const half = Math.floor(n / 2);
+    await route.fulfill({
+      json: {
+        paths: [
+          {
+            distance: 0,
+            time: 0,
+            ascend: 0,
+            descend: 0,
+            points: { type: 'LineString', coordinates },
+            details: {
+              surface: [
+                [0, half, 'gravel'],
+                [half, n, 'asphalt'],
+              ],
+              road_class: [[0, n, 'track']],
+              track_type: [[0, n, 'grade2']],
+              osm_way_id: [[0, n, 4242]],
+            },
+          },
+        ],
+      },
+    });
+  });
+  return matched;
+}
+
+// Every opened track is matched to the roads for its surfaces; none of these reach a real engine.
+let matched: number[] = [];
+test.beforeEach(async ({ page }) => {
+  matched = await stubMatch(page);
+});
 
 test('open a GPX track; reroute around one flagged section and keep the other', async ({
   page,
@@ -145,4 +193,72 @@ test('Clear removes an opened track and the route', async ({ page }) => {
   await expect(page.getByTestId('waypoint')).toHaveCount(0);
   await expect(page.getByText('Click the map to set a start point.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Clear' })).toHaveCount(0);
+});
+
+/** A PNG `size` pixels across in one RGBA colour. */
+function png(size: number, rgba: [number, number, number, number]) {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const out = Buffer.alloc(body.length + 8);
+    out.writeUInt32BE(data.length, 0);
+    body.copy(out, 4);
+    out.writeUInt32BE(crc32(body), body.length + 4);
+    return out;
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header.set([8, 6, 0, 0, 0], 8); // 8 bits, RGBA
+  const row = Buffer.from([0, ...Array.from({ length: size }, () => rgba).flat()]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: size }, () => row)))),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+test('a track without elevation gets it from the elevation tiles', async ({ page }) => {
+  await stubRouting(page, straightRoute);
+  // Elevation tiles 300 m up everywhere (terrarium: 129 × 256 + 44 − 32768).
+  const tiles: string[] = [];
+  await page.route(/tiles\.mapterhorn\.com/, (route) => {
+    tiles.push(route.request().url());
+    return route.fulfill({ contentType: 'image/png', body: png(16, [129, 44, 0, 255]) });
+  });
+  await openMap(page);
+  await openTrack(page, { ele: false });
+
+  await expect(page.getByRole('img', { name: 'Elevation profile, 300 m to 300 m' })).toBeVisible();
+  await expect(page.getByTestId('track-elevation')).toContainText('it’s from Mapterhorn');
+  expect(tiles.some((u) => u.includes('/12/'))).toBe(true);
+});
+
+test('a track without elevation opens without a profile when there’s none to be had', async ({
+  page,
+}) => {
+  await stubRouting(page, straightRoute);
+  await page.route(/tiles\.mapterhorn\.com/, (route) => route.fulfill({ status: 503 }));
+  await openMap(page);
+  await openTrack(page, { ele: false });
+
+  await expect(page.getByTestId('track-elevation')).toContainText('No elevation profile');
+  await expect(page.getByTestId('elevation-chart')).toHaveCount(0);
+});
+
+test('an opened track shows its surfaces, through a reroute', async ({ page }) => {
+  await stubRouting(page, aroundTo);
+  await saveFlags(page);
+  await openTrack(page);
+
+  const surfaces = page.getByLabel('Surface breakdown');
+  await expect(surfaces.getByTestId('surface-gravel')).toHaveText('Gravel 50%');
+  await expect(surfaces.getByTestId('surface-paved')).toHaveText('Paved 50%');
+  expect(matched).toEqual([TRACK.length]);
+  // The way around (asphalt) goes into the track's surfaces, without matching the track again.
+  await question(page).getByRole('button', { name: 'Reroute around it' }).click();
+  await expect(page.getByTestId('track-section').first()).toContainText('Rerouted');
+  await expect(surfaces.getByTestId('surface-paved')).not.toHaveText('Paved 50%');
+  await expect(surfaces.getByTestId('surface-gravel')).toBeVisible();
+  expect(matched).toHaveLength(1);
 });

@@ -53,6 +53,7 @@ function fakeEngine(roundTripFactor = 1, circleFactor = 1) {
   const routes: RouteRequest[] = [];
   const engine: RoutingEngine = {
     trace: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
     roundTrip: (request) => {
       roundTrips.push(request);
       return Promise.resolve(flatRoute(request.distanceM * roundTripFactor));
@@ -212,6 +213,7 @@ describe('findLoops', () => {
       trace: () => Promise.reject(new Error('not used')),
       route: () => Promise.reject(down),
       roundTrip: () => Promise.reject(down),
+      match: () => Promise.reject(down),
     };
     await expect(findLoops(engine, search)).rejects.toBe(down);
   });

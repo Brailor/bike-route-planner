@@ -1,12 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FLAG_REASONS } from '../flags/flag';
 import { downloadGpx } from '../gpx/download';
 import { GpxImportError, importGpx } from '../gpx/importGpx';
 import { usePlanner, type ImportedTrack, type TrackSection } from '../state/store';
+import { withElevation } from '../track/elevation';
+import { mapterhornTiles } from '../track/mapterhorn';
+import { surfaceBreakdown } from '../route/surface';
 import { cumulativeM } from '../track/sections';
 import type { AvoidFlag } from '../types';
 import { ElevationChart } from './ElevationChart';
 import { formatDistance } from './format';
+import { SurfaceBar } from './SurfaceBar';
 
 const sectionCount = (n: number) => (n === 1 ? '1 flagged section' : `${n} flagged sections`);
 
@@ -35,25 +39,43 @@ function outcomeText(section: TrackSection) {
   }
 }
 
-/** Opening a GPX file someone already has, from the sidebar's header. Why a file can't be opened goes to `onError`. */
+/**
+ * Opening a GPX file someone already has, from the sidebar's header. A track without elevation has it looked up
+ * first. Why a file can't be opened goes to `onError`.
+ */
 export function OpenTrackButton({ onError }: { onError: (message: string | undefined) => void }) {
+  const [opening, setOpening] = useState(false);
+  /** The file opened last: one picked while an earlier one is still being looked up replaces it. */
+  const latest = useRef<File>(undefined);
+
   async function open(file: File) {
+    latest.current = file;
     onError(undefined);
+    setOpening(true);
     try {
-      const { name, coordinates } = await importGpx(file);
-      usePlanner.getState().openTrack(name, coordinates);
+      const { name, coordinates: read } = await importGpx(file);
+      const { coordinates, elevation } = await withElevation(read, mapterhornTiles);
+      if (latest.current === file) usePlanner.getState().openTrack(name, coordinates, elevation);
     } catch (err) {
       if (!(err instanceof GpxImportError)) console.warn('Could not read GPX file:', err);
-      onError(err instanceof GpxImportError ? err.message : 'Couldn’t read this file.');
+      if (latest.current === file)
+        onError(err instanceof GpxImportError ? err.message : 'Couldn’t read this file.');
+    } finally {
+      if (latest.current === file) setOpening(false);
     }
   }
 
   return (
-    <label className="button workout__file" title="Open a GPX track to check it against your flags">
-      Open GPX
+    <label
+      className="button workout__file"
+      title="Open a GPX track to check it against your flags"
+      aria-busy={opening}
+    >
+      {opening ? 'Opening…' : 'Open GPX'}
       <input
         type="file"
         accept=".gpx"
+        aria-label="Open GPX"
         className="visually-hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -73,6 +95,13 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
   const flags = usePlanner((s) => s.flags);
   const { closeTrack, keepSection, rerouteSections, showOnMap } = usePlanner.getState();
   const lengthM = useMemo(() => cumulativeM(track.coordinates).at(-1) ?? 0, [track.coordinates]);
+  const { coordinates, roads, roadsError } = track;
+  const breakdown = useMemo(
+    () =>
+      roads &&
+      surfaceBreakdown({ geometry: { type: 'LineString', coordinates }, attributes: roads }),
+    [coordinates, roads],
+  );
   const { sections, current, rerouting } = track;
   const asked = sections[current];
   const remaining = sections.length - current;
@@ -91,6 +120,17 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
           <dd data-testid="track-distance">{formatDistance(lengthM)}</dd>
         </div>
       </dl>
+      {breakdown ? (
+        <SurfaceBar breakdown={breakdown} />
+      ) : roadsError ? (
+        <p className="hint" data-testid="track-roads">
+          {roadsError}
+        </p>
+      ) : (
+        <p className="status" role="status" data-testid="track-roads">
+          Finding the surfaces…
+        </p>
+      )}
       {sections.length === 0 ? (
         <p className="hint">This track doesn’t run along any of your flagged sections.</p>
       ) : (
@@ -171,6 +211,20 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
         </>
       )}
       <ElevationChart coordinates={track.coordinates} />
+      {track.elevation === 'looked_up' && (
+        <p className="hint" data-testid="track-elevation">
+          The file has no elevation; it’s from{' '}
+          <a href="https://mapterhorn.com/attribution" target="_blank" rel="noreferrer">
+            Mapterhorn
+          </a>
+          .
+        </p>
+      )}
+      {track.elevation === 'none' && (
+        <p className="hint" data-testid="track-elevation">
+          No elevation profile: the file has no elevation, and it couldn’t be looked up.
+        </p>
+      )}
       <button
         type="button"
         className="button button--primary"

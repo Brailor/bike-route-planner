@@ -54,6 +54,22 @@ test.describe('engine contract', () => {
     });
   }
 
+  test('recorded fixture "gravel-match" still matches the live engine', async ({ request }) => {
+    const recorded = fixture('gravel-match') as ReturnType<typeof fixture> & {
+      request: { query: string; gpx: string };
+      response: GhRouteResponse;
+    };
+    const res = await request.post(`${GH}/match?${recorded.request.query}`, {
+      headers: { 'Content-Type': 'application/gpx+xml' },
+      data: recorded.request.gpx,
+    });
+    expect(res.status()).toBe(recorded.status);
+    const [was] = recorded.response.paths;
+    const [now] = ((await res.json()) as GhRouteResponse).paths;
+    expect(Object.keys(now!.details).sort()).toEqual(Object.keys(was!.details).sort());
+    expect(now!.distance).toBeCloseTo(was!.distance, -1);
+  });
+
   // ADR 0002: under LM the engine rejects any multiply_by outside [0, 1].
   test('accepts the custom model for every profile setting', async ({ request }) => {
     const waypoints: LonLat[] = [
@@ -253,6 +269,30 @@ test.describe('app against the live engine', () => {
     await expect(
       page.getByText('This track doesn’t run along any of your flagged sections.'),
     ).toBeVisible();
+  });
+
+  // A track from a file has no road data: matched to the roads, it gets the surfaces the route it came from had.
+  test('an opened GPX track gets the surfaces of the roads it runs along', async ({ page }) => {
+    await openMap(page);
+    await placeEnds(page);
+    await expect(page.getByTestId('stat-distance')).toBeVisible();
+    const shares = async () => {
+      const out: Record<string, number> = {};
+      for (const item of await page.getByLabel('Surface breakdown').getByRole('listitem').all()) {
+        const [, label, percent] = /^(\w+) (\d+)%$/.exec((await item.textContent()) ?? '') ?? [];
+        if (label) out[label] = Number(percent);
+      }
+      return out;
+    };
+    const planned = await shares();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export GPX' }).click();
+
+    await page.getByLabel('Open GPX').setInputFiles(await (await download).path());
+    await expect(page.getByLabel('Surface breakdown')).toBeVisible({ timeout: 30_000 });
+    const opened = await shares();
+    for (const label of new Set([...Object.keys(planned), ...Object.keys(opened)]))
+      expect(Math.abs((opened[label] ?? 0) - (planned[label] ?? 0)), label).toBeLessThanOrEqual(3);
   });
 
   test('a section marked on the map without a route is traced and avoided later', async ({

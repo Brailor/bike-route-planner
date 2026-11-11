@@ -40,6 +40,7 @@ function fakeEngine() {
   const roundTrips: { request: RoundTripRequest; signal: AbortSignal | undefined }[] = [];
   const engine: RoutingEngine = {
     trace: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
     route: () => Promise.resolve(distinct()),
     roundTrip: (request, signal) => {
       roundTrips.push({ request, signal });
@@ -102,7 +103,7 @@ describe('useLoopSearch', () => {
   it('explains when the engine is down', async () => {
     ready();
     const down = () => Promise.reject(new RoutingError('down', 'unavailable'));
-    const engine: RoutingEngine = { trace: down, route: down, roundTrip: down };
+    const engine: RoutingEngine = { trace: down, route: down, roundTrip: down, match: down };
     renderHook(() => useLoopSearch(engine));
     act(() => state().searchLoops());
     await waitFor(() => expect(state().loops?.status).toBe('error'));

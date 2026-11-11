@@ -2,6 +2,7 @@ import type { LonLat } from '../../types';
 import type { RoundTripRequest, RouteRequest, RouteResult, RoutingEngine } from '../types';
 import { RoutingError } from '../types';
 import {
+  buildMatchRequest,
   buildRoundTripRequestBody,
   buildRouteRequestBody,
   buildTraceRequestBody,
@@ -33,13 +34,27 @@ export class GraphHopperEngine implements RoutingEngine {
     return this.post(buildRoundTripRequestBody(request), signal);
   }
 
-  private async post(body: GhRouteRequestBody, signal?: AbortSignal): Promise<RouteResult> {
+  match(track: readonly (readonly number[])[], signal?: AbortSignal): Promise<RouteResult> {
+    const { query, gpx } = buildMatchRequest(track);
+    return this.send(`match?${query}`, 'application/gpx+xml', gpx, signal);
+  }
+
+  private post(body: GhRouteRequestBody, signal?: AbortSignal): Promise<RouteResult> {
+    return this.send('route', 'application/json', JSON.stringify(body), signal);
+  }
+
+  private async send(
+    path: string,
+    contentType: string,
+    body: string,
+    signal?: AbortSignal,
+  ): Promise<RouteResult> {
     let res: Response;
     try {
-      res = await this.fetchFn(`${this.baseUrl}/route`, {
+      res = await this.fetchFn(`${this.baseUrl}/${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': contentType },
+        body,
         signal,
       });
     } catch (err) {

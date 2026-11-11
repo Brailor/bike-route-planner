@@ -10,7 +10,9 @@ export interface SurfaceRunProps {
 }
 
 /** Consecutive segments with the same surface class merged into one line, for colouring the route. */
-export function surfaceRuns(route: RouteResult): FeatureCollection<LineString, SurfaceRunProps> {
+export function surfaceRuns(
+  route: Pick<RouteResult, 'geometry' | 'attributes'>,
+): FeatureCollection<LineString, SurfaceRunProps> {
   const coords = route.geometry.coordinates;
   const features: Feature<LineString, SurfaceRunProps>[] = [];
   let current: Feature<LineString, SurfaceRunProps> | undefined;

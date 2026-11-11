@@ -160,6 +160,9 @@ export interface Splice {
   /** The last coordinate of the old track kept before the way around, and the first one after it. */
   kept: number;
   resumed: number;
+  /** The first and last coordinate of the way around (as routed) that went into the track. */
+  detourFrom: number;
+  detourTo: number;
 }
 
 /**
@@ -225,5 +228,7 @@ export function spliceDetour(
     to: kept.length + way.length - 1,
     kept: head.keep,
     resumed: tail.resume,
+    detourFrom: head.start,
+    detourTo: tail.end,
   };
 }

@@ -61,6 +61,11 @@ export interface RoutingEngine {
   trace(points: LonLat[], signal?: AbortSignal): Promise<RouteResult>;
   /** A loop of roughly the requested distance; different seeds give different loops. */
   roundTrip(request: RoundTripRequest, signal?: AbortSignal): Promise<RouteResult>;
+  /**
+   * The roads and paths a track made elsewhere runs along ([lon, lat, ...] points, e.g. a recorded ride): for their
+   * attributes (ADR 0012). The answer's geometry follows the road network, so it isn't the track itself.
+   */
+  match(track: readonly (readonly number[])[], signal?: AbortSignal): Promise<RouteResult>;
 }
 
 export class RoutingError extends Error {

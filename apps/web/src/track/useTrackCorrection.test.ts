@@ -33,13 +33,14 @@ function fakeEngine(answer: (request: RouteRequest) => Promise<RouteResult>) {
     },
     trace: () => Promise.reject(new Error('not used')),
     roundTrip: () => Promise.reject(new Error('not used')),
+    match: () => Promise.reject(new Error('not used')),
   };
   return { engine, calls };
 }
 
 function open() {
   state().loadFlags([FIRST, SECOND]);
-  state().openTrack('Sunday ride', TRACK);
+  state().openTrack('Sunday ride', TRACK, 'none');
 }
 
 describe('useTrackCorrection', () => {

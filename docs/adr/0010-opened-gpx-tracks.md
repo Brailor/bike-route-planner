@@ -1,6 +1,6 @@
 # 0010: Opened GPX tracks: only flagged sections change
 
-- Status: accepted
+- Status: accepted; surfaces added by ADR 0012
 - Date: 2026-11-06
 
 ## Context

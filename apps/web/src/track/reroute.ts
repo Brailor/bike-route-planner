@@ -1,5 +1,5 @@
 import { usesFlag } from '../flags/avoid';
-import type { RoutingEngine } from '../routing/types';
+import type { RouteResult, RoutingEngine } from '../routing/types';
 import type { AvoidFlag, LonLat, ProfileSettings } from '../types';
 import {
   anchors,
@@ -25,7 +25,10 @@ export const ANCHOR_DISTANCES_M = [50, 300, 1000, 3000] as const;
  */
 export const GIVE_UP_COST = 0.25;
 
-export type Reroute = { outcome: 'rerouted'; splice: Splice } | { outcome: 'no_way_around' };
+export type Reroute =
+  /** `detour`: the way around as routed, whose attributes go into the track's. */
+  | { outcome: 'rerouted'; splice: Splice; detour: Pick<RouteResult, 'geometry' | 'attributes'> }
+  | { outcome: 'no_way_around' };
 
 /** Where a way around `sections[index]` may run along the track: up to its neighbours, not into them. */
 export function sectionBounds(
@@ -81,7 +84,10 @@ export async function rerouteSection(
       const route = await engine.route({ waypoints, settings, flags }, signal);
       return usesFlag(route, flags)
         ? undefined
-        : spliceDetour(track, section, bounds, ends, route.geometry.coordinates);
+        : {
+            splice: spliceDetour(track, section, bounds, ends, route.geometry.coordinates),
+            detour: route,
+          };
     }),
   );
   const splices = answers.flatMap((a) => (a.status === 'fulfilled' && a.value ? [a.value] : []));
@@ -89,7 +95,9 @@ export async function rerouteSection(
   // Only when no answer came back is a failure the outcome: an error, rather than "no way around".
   if (failed && answers.every((a) => a.status === 'rejected')) throw failed.reason;
   const best = splices
-    .map((splice) => ({ splice, cost: spliceCost(track, section, splice) }))
+    .map((way) => ({ ...way, cost: spliceCost(track, section, way.splice) }))
     .sort((a, b) => a.cost - b.cost)[0];
-  return best ? { outcome: 'rerouted', splice: best.splice } : { outcome: 'no_way_around' };
+  return best
+    ? { outcome: 'rerouted', splice: best.splice, detour: best.detour }
+    : { outcome: 'no_way_around' };
 }

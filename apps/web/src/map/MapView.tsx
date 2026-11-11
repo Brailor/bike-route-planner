@@ -58,7 +58,7 @@ const FLAGS_HIT_LAYER = 'flags-hit';
 /** Wide invisible lines over suggested loops, so one is easy to click and select. */
 const LOOPS_HIT_LAYER = 'loops-hit';
 
-/** An opened GPX track: it has no surface details, so it's one colour. */
+/** An opened GPX track until its surfaces are known (ADR 0012); then it's drawn in their colours over this. */
 const TRACK_COLOR = '#2563eb';
 
 /** Loops other than the selected one, which is drawn in surface colours like a route. */
@@ -200,6 +200,16 @@ export function MapView() {
               },
             ],
           }
+        : EMPTY,
+    [track],
+  );
+  const trackSurface = useMemo(
+    () =>
+      track?.roads
+        ? surfaceRuns({
+            geometry: { type: 'LineString', coordinates: track.coordinates },
+            attributes: track.roads,
+          })
         : EMPTY,
     [track],
   );
@@ -585,8 +595,29 @@ export function MapView() {
         <Layer
           id="track-line"
           type="line"
-          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          layout={{
+            'line-join': 'round',
+            'line-cap': 'round',
+            // Beneath the surface colours, it would show through the dashes.
+            visibility: track?.roads ? 'none' : 'visible',
+          }}
           paint={{ 'line-color': TRACK_COLOR, 'line-width': 5 }}
+        />
+      </Source>
+      <Source id="track-surface" type="geojson" data={trackSurface}>
+        <Layer
+          id="track-surface"
+          type="line"
+          filter={['==', ['get', 'inferred'], false]}
+          layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': surfaceColor, 'line-width': 5 }}
+        />
+        <Layer
+          id="track-surface-inferred"
+          type="line"
+          filter={['==', ['get', 'inferred'], true]}
+          layout={{ 'line-join': 'round' }}
+          paint={{ 'line-color': surfaceColor, 'line-width': 5, 'line-dasharray': [1.2, 0.8] }}
         />
       </Source>
 

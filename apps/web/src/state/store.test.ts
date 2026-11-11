@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { sectionBounds } from '../track/reroute';
 import { spliceDetour } from '../track/sections';
-import { at, east, flagOn, metres } from '../test/metres';
+import { at, east, flagOn, metres, routeAlong } from '../test/metres';
 import { fixtureRoute } from '../test/route';
 import type { LonLat } from '../types';
 import { durationWorkout } from '../workouts/workout';
@@ -509,7 +509,7 @@ describe('opened tracks', () => {
 
   function open() {
     state().loadFlags([FIRST, SECOND]);
-    state().openTrack('Sunday ride', TRACK);
+    state().openTrack('Sunday ride', TRACK, 'none');
     const track = state().track;
     if (!track) throw new Error('no track');
     return track;
@@ -526,7 +526,7 @@ describe('opened tracks', () => {
       [section.from - 1, section.to + 1],
       [at(150, 100), at(350, 100)],
     );
-    return { section, splice };
+    return { section, splice, detour: routeAlong([at(150, 100), at(350, 100)], 99) };
   }
 
   it('opens a track with the sections along flags, showing the first', () => {
@@ -540,7 +540,7 @@ describe('opened tracks', () => {
   });
 
   it('shows the whole track when it runs along no flag', () => {
-    state().openTrack('Clear', TRACK);
+    state().openTrack('Clear', TRACK, 'none');
     expect(state().track?.sections).toEqual([]);
     expect(state().mapFocus?.points.map(metres)).toEqual([
       [0, 0],
@@ -578,11 +578,11 @@ describe('opened tracks', () => {
 
   it('splices a way around in, and moves the later sections with the coordinates', () => {
     const track = open();
-    const { splice } = detourFor(track);
+    const { splice, detour } = detourFor(track);
     const second = track.sections[1];
     state().rerouteSections(false);
     expect(state().track?.rerouting).toBe('one');
-    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice });
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour });
 
     const after = state().track;
     expect(after?.coordinates).toBe(splice.coordinates);
@@ -631,11 +631,11 @@ describe('opened tracks', () => {
 
   it('ignores answers to another question, another track, or none asked', () => {
     const track = open();
-    const { splice } = detourFor(track);
-    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice }); // not asked
+    const { splice, detour } = detourFor(track);
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour }); // not asked
     state().rerouteSections(false);
-    state().setSectionResult(track.id, 1, { outcome: 'rerouted', splice }); // another section
-    state().setSectionResult('another', 0, { outcome: 'rerouted', splice });
+    state().setSectionResult(track.id, 1, { outcome: 'rerouted', splice, detour }); // another section
+    state().setSectionResult('another', 0, { outcome: 'rerouted', splice, detour });
     expect(state().track?.coordinates).toBe(TRACK);
     expect(state().track?.current).toBe(0);
     // Keeping isn't possible while a reroute is running, and rerouting isn't started twice.
@@ -643,15 +643,69 @@ describe('opened tracks', () => {
     state().rerouteSections(true);
     expect(state().track).toMatchObject({ current: 0, rerouting: 'one' });
     state().closeTrack();
-    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice });
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour });
     expect(state().track).toBeUndefined();
+  });
+
+  /** Asphalt all along: one span over every segment of the coordinates. */
+  const asphalt = (coordinates: number[][]) => {
+    const all = <T>(value: T) => [{ from: 0, to: coordinates.length - 1, value }];
+    return {
+      surface: all('asphalt'),
+      roadClass: all('residential'),
+      trackType: all('missing'),
+      osmWayId: all<number | null>(1),
+      crossing: all('missing'),
+    };
+  };
+
+  it('keeps the roads matched to the track as it is, and why they couldn’t be', () => {
+    const track = open();
+    expect(track).toMatchObject({ roads: undefined, roadsError: undefined });
+    state().setTrackRoads(track.id, track.coordinates, { error: 'No match' });
+    expect(state().track).toMatchObject({ roads: undefined, roadsError: 'No match' });
+    const roads = asphalt(track.coordinates);
+    state().setTrackRoads(track.id, track.coordinates, { roads });
+    expect(state().track).toMatchObject({ roads, roadsError: undefined });
+  });
+
+  it('ignores roads for another track, or for coordinates it no longer has', () => {
+    const track = open();
+    const roads = asphalt(track.coordinates);
+    state().setTrackRoads('another', track.coordinates, { roads });
+    state().setTrackRoads(track.id, [...track.coordinates], { roads });
+    expect(state().track?.roads).toBeUndefined();
+  });
+
+  it('splices the way around’s roads into the track’s', () => {
+    const track = open();
+    state().setTrackRoads(track.id, track.coordinates, { roads: asphalt(track.coordinates) });
+    const { splice, detour } = detourFor(track);
+    const gravel = {
+      ...detour,
+      attributes: { ...detour.attributes, surface: [{ from: 0, to: 1, value: 'gravel' }] },
+    };
+    state().rerouteSections(false);
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour: gravel });
+    const roads = state().track?.roads;
+    expect(roads?.surface.map((s) => s.value)).toEqual(['asphalt', 'gravel', 'asphalt']);
+    expect(roads?.surface.at(-1)?.to).toBe(splice.coordinates.length - 1);
+  });
+
+  it('has the track matched afresh when it changed before its roads were known', () => {
+    const track = open();
+    state().setTrackRoads(track.id, track.coordinates, { error: 'Engine down' });
+    const { splice, detour } = detourFor(track);
+    state().rerouteSections(false);
+    state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour });
+    expect(state().track).toMatchObject({ roads: undefined, roadsError: undefined });
   });
 });
 
 describe('clearing the map', () => {
   it('removes the waypoints and an opened track; undo brings the waypoints back', () => {
     state().addWaypoint([16, 48]);
-    state().openTrack('Sunday ride', east(0, 1000));
+    state().openTrack('Sunday ride', east(0, 1000), 'none');
     state().clearMap();
     expect(state().waypoints).toEqual([]);
     expect(state().track).toBeUndefined();
@@ -660,7 +714,7 @@ describe('clearing the map', () => {
   });
 
   it('removes a track opened with no route, without an empty undo step', () => {
-    state().openTrack('Sunday ride', east(0, 1000));
+    state().openTrack('Sunday ride', east(0, 1000), 'none');
     state().clearMap();
     expect(state().track).toBeUndefined();
     expect(state().past).toEqual([]);

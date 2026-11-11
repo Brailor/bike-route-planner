@@ -7,6 +7,7 @@ import { it } from 'vitest';
 import { flagFromSelection } from '../src/flags/flag';
 import { initialSelection } from '../src/flags/selection';
 import {
+  buildMatchRequest,
   buildRoundTripRequestBody,
   buildRouteRequestBody,
   type GhRouteRequestBody,
@@ -80,6 +81,29 @@ it.runIf(process.env.RECORD_GH_FIXTURES)('records GraphHopper fixtures', async (
   for (const { name, input } of CASES) {
     const fixture = await record(name, input);
     if (name !== 'gravel-offroad-80') continue;
+
+    // The route as a track made elsewhere, matched back to the roads (ADR 0012).
+    const track = mapRouteResponse(fixture.response as GhRouteResponse).geometry.coordinates;
+    const match = buildMatchRequest(track);
+    const matched = await fetch(`${GH}/match?${match.query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/gpx+xml' },
+      body: match.gpx,
+    });
+    writeFileSync(
+      join(OUT, 'gravel-match.json'),
+      JSON.stringify(
+        {
+          name: 'gravel-match',
+          input: track,
+          request: match,
+          status: matched.status,
+          response: await matched.json(),
+        },
+        null,
+        2,
+      ) + '\n',
+    );
 
     // Flags drawn on this route as the app makes them: where "Flag a section" puts the handles (there's a way
     // around), and one over the start (the route can't avoid it).
