@@ -29,26 +29,29 @@ This plan covers getting there: the app in containers, accounts, and storage on 
 
 ```
 phone / browser ──HTTPS──▶ web   built app + proxy
-                            ├─ /gh/*  → routing  GraphHopper; graph mounted, not in the image
-                            ├─ /geo/* → Photon   public API, for now (ADR 0006)
-                            └─ /api/* → api      login, saved routes, flags; SQLite file on a volume
+                            ├─ /gh/route, /gh/match → routing  GraphHopper; graph mounted, not in the image
+                            ├─ /geo/*               → Photon   public API, for now (ADR 0006)
+                            └─ /api/*               → api      login, saved routes, flags; SQLite file on a volume
 ```
 
 - **The web container does what the Vite dev proxy does today,** so the app keeps calling `/gh` and `/geo`
   unchanged.
 - **Only the web container is reachable from outside.** It passes on only the engine calls the app makes (`route`,
-  `match`).
+  `match`); every other engine path is refused.
+- **Routing and address search need a login.** The web container passes on `/gh` and `/geo` only with a valid login
+  session, checked with the API. Otherwise anyone who finds the address could use the engine (keeping the machine
+  awake, at your cost) and Photon in your name.
 - **The graph is data, not part of the image.** Locally the container mounts `services/routing/data`, so nothing is
   re-imported. In the cloud it sits on a volume. The graph is built on a computer and copied up, since the import
   needs about 6.3 GB.
 
 ## Engine memory (measured 2026-11-17, on the Mac, with a copy of the engine)
 
-| Setup                                                        | Memory limit | Result                                     |
-| ------------------------------------------------------------ | ------------ | ------------------------------------------ |
-| `graph.dataaccess.default_type: RAM_STORE` (today's setting) | 3 GB         | Ran out of memory loading the 2.1 GB graph |
-| `MMAP` (graph read from disk, cached by the system)          | 512 MB       | Up in 2 s; Vienna–Graz gravel route 0.06 s |
-| Today's engine, for comparison                               | 10 GB        | Same route 0.05 s                          |
+| Setup                                                        | Memory limit | Result                                                                                        |
+| ------------------------------------------------------------ | ------------ | --------------------------------------------------------------------------------------------- |
+| `graph.dataaccess.default_type: RAM_STORE` (today's setting) | 3 GB         | Ran out of memory loading the 2.1 GB graph                                                    |
+| `MMAP` (graph read from disk, cached by the system)          | 512 MB       | Up in 2 s; Vienna–Graz gravel route 0.06 s (warm file cache: the graph was already in memory) |
+| Today's engine, for comparison                               | 10 GB        | Same route 0.05 s                                                                             |
 
 So the container keeps one `config.yml` and chooses the memory mode and heap through environment variables: the
 whole graph in memory locally, `MMAP` on a small cloud machine.
@@ -73,7 +76,9 @@ setup and non-goals ("user accounts, sync" is a non-goal today), [plan.md](plan.
 
 - **Accounts are added by a command,** for example `pnpm --filter api user:add anna`.
 - **Each person has their own flags and routes.** Sharing flags between friends can come later.
-- **Existing flags come along:** on first login, the flags in the browser are uploaded to the account.
+- **Existing flags come along, once:** on the first login in a browser, the flags saved in it are uploaded to that
+  account and then cleared from the browser. A later login in the same browser (a friend's, say) finds nothing to
+  upload, so flags never end up in someone else's account.
 - **No new dependencies where Node does the job:** Node's built-in SQLite and password hashing. Check first that
   the built-in SQLite is stable enough in Node 24.
 - **Login cookies are HTTPS-only and not readable by scripts.** Passwords are stored hashed.
@@ -89,5 +94,8 @@ setup and non-goals ("user accounts, sync" is a non-goal today), [plan.md](plan.
 - **Waking stopped containers on Fly.io.** The web container has to wake the stopped engine and API. This is
   possible but untried. If it's awkward, the same compose file runs unchanged on a VPS.
 - **Engine speed with 2 GB of memory and on a cloud processor.** Measured only on the Mac so far.
+- **Cold start.** The 2 s start-up was measured with the graph already in memory. A woken cloud machine first reads
+  the 2.1 GB graph from its volume, so the real wait for the first route on a ride is unknown. Measure in chunk 5;
+  it decides whether stop-when-idle is usable.
 - **The Mac-built graph loading unchanged** on the cloud machine's processor. Check in chunk 1.
 - **Backups of the SQLite file.** Check Fly.io's volume snapshots in chunk 5, before real data lives there.
