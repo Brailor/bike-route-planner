@@ -116,10 +116,21 @@ docker run --rm -p 8989:8989 -v "$PWD/services/routing/data/graph-cache:/srv/rou
   bike-route-planner-routing
 ```
 
+The web container (ADR 0014) serves the built app and passes `/gh` to the engine's container and `/geo` to Photon,
+as the dev server does. Run both on one Docker network (one command for this comes with the API):
+
+```bash
+pnpm web:image       # builds bike-route-planner-web
+docker network create brp
+docker run --rm -d --name routing --network brp \
+  -v "$PWD/services/routing/data/graph-cache:/srv/routing/data/graph-cache" bike-route-planner-routing
+docker run --rm -d --name web --network brp -p 8080:8080 bike-route-planner-web   # http://localhost:8080
+```
+
 `pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
 Sample requests are in `services/routing/routing.http`.
 
-Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses; what CI runs), `pnpm e2e:live` (Playwright against the running engine; opt-in, run it after changing models, config or the OSM data).
+Tests: `pnpm test` (unit), `pnpm e2e` (Playwright with recorded engine responses; what CI runs), `pnpm e2e:live` (Playwright against the running engine; opt-in, run it after changing models, config or the OSM data). `E2E_BASE_URL` runs either against an app that's already served, such as the web container.
 Recorded responses: `pnpm --filter web fixtures:record` (GraphHopper, needs the engine) and `pnpm --filter web fixtures:record-photon` (Photon, queries the public API).
 
 The engine's settings are in `services/routing/config.yml` (what it must keep is listed in [AGENTS.md](AGENTS.md#routing-engine)). After changing its encoded values, delete `services/routing/data/graph-cache` so the next `pnpm routing:start` re-imports (about 5 minutes).

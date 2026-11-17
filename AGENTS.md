@@ -74,6 +74,9 @@ the memory mode (`GH_DATAACCESS`) and bind host (`GH_BIND_HOST`) through environ
 in `config.yml` overridable rather than duplicated. When running the image yourself, mount a copy of the graph-cache
 on a port other than 8989, and stop the container afterwards.
 
+The web container (`apps/web/Caddyfile`, ADR 0014) passes on only the engine paths the app calls (`/route`,
+`/match`). A new endpoint in `GraphHopperEngine` must be allowed there too, and `e2e:live` run through the container.
+
 Changing the encoded values needs a re-import: delete `services/routing/data/graph-cache` and start the engine
 (about 5 minutes, about 6.3 GB heap). Until then the engine rejects requests for the new details, so the app can't
 route. Ask the user before doing this to their engine.

@@ -489,7 +489,12 @@ flagging feature, which needs it.
     heap): routes as fast as whole-in-memory, which needed a 5 GB heap. `e2e:live` passes against it (24 tests);
     map matching 61 km in 6 s at 512 MB; the Mac-built graph loads on emulated amd64 with the same route to the
     metre. The dev proxy takes `GH_URL`, so the app can use the container
-- [ ] Web image
+- [x] Web image
+  - `apps/web/Dockerfile` + `Caddyfile` + `pnpm web:image` (ADR 0014): the built app on Caddy, 92 MB, as `nobody`.
+    Passes only `/gh/route` and `/gh/match` (other engine paths 404) and `/geo` to Photon without cookies or the
+    user's IP (mutation-checked against an echo server). `E2E_BASE_URL` points Playwright at it: the stubbed suite
+    passes (39), and `e2e:live` through it with the routing container (24; the engine logged the browser's requests
+    coming from the web container). `/api` comes with the API
 - [ ] API, SQLite and login
 - [ ] Saved routes and flags on the server
 - [ ] Deploy to Fly.io

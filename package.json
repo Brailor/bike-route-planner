@@ -19,7 +19,8 @@
     "format:check": "prettier --check .",
     "routing:setup": "services/routing/scripts/setup.sh",
     "routing:start": "services/routing/scripts/start.sh",
-    "routing:image": "docker build -t bike-route-planner-routing services/routing"
+    "routing:image": "docker build -t bike-route-planner-routing services/routing",
+    "web:image": "docker build -f apps/web/Dockerfile -t bike-route-planner-web ."
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

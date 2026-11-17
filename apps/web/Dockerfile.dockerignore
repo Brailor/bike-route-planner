@@ -1,0 +1,12 @@
+# The web image needs the workspace manifests and apps/web's sources; nothing built or installed locally.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!apps/web
+apps/web/node_modules
+apps/web/dist
+apps/web/coverage
+apps/web/playwright-report
+apps/web/test-results

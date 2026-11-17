@@ -1,0 +1,35 @@
+# The web container (ADR 0014): serves the built app and does what the Vite dev proxy does (vite.config.ts), so the
+# app calls /gh and /geo unchanged.
+{
+	admin off
+	# TLS ends in front of the container (Fly.io); locally it's plain HTTP.
+	auto_https off
+}
+
+:8080 {
+	encode zstd gzip
+
+	# Only the engine calls the app makes (GraphHopperEngine); every other engine path stays private.
+	@engine path /gh/route /gh/match
+	handle @engine {
+		uri strip_prefix /gh
+		reverse_proxy {$GH_URL:http://routing:8989}
+	}
+	handle /gh/* {
+		respond 404
+	}
+
+	# Photon address search (ADR 0006). Photon gets only what the user typed and the rounded map centre (AGENTS.md):
+	# not the user's IP address or cookies.
+	handle_path /geo/* {
+		reverse_proxy {$PHOTON_URL:https://photon.komoot.io} {
+			header_up -X-Forwarded-For
+			header_up -Cookie
+		}
+	}
+
+	handle {
+		root * /srv
+		file_server
+	}
+}
