@@ -478,6 +478,17 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     Confirmed live: routes inside Hungary (Budapest–Szentendre, Győr–Pannonhalma, Tihany, Budapest–Esztergom) and
     across the border (Wien–Sopron, Neusiedl–Fertőrákos, Wien–Budapest by car); a Győr route planned in the app
 
+### Containers and accounts (added on request)
+
+Plan, decisions and measurements: [containers.md](containers.md). Agreed 2026-11-17; comes before the on-the-ride
+flagging feature, which needs it.
+
+- [ ] Routing image
+- [ ] Web image
+- [ ] API, SQLite and login
+- [ ] Saved routes and flags on the server
+- [ ] Deploy to Fly.io
+
 ### M5: Station-to-station discovery
 
 - [ ] To plan after M4
