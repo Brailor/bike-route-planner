@@ -53,8 +53,9 @@ phone / browser ──HTTPS──▶ web   built app + proxy
 | `MMAP` (graph read from disk, cached by the system)          | 512 MB       | Up in 2 s; Vienna–Graz gravel route 0.06 s (warm file cache: the graph was already in memory) |
 | Today's engine, for comparison                               | 10 GB        | Same route 0.05 s                                                                             |
 
-So the container keeps one `config.yml` and chooses the memory mode and heap through environment variables: the
-whole graph in memory locally, `MMAP` on a small cloud machine.
+So the container keeps one `config.yml` and chooses the memory mode and heap through environment variables. In
+Docker (chunk 1) the whole graph in memory needed a 5 GB heap and was no faster, so the container reads from disk
+(`MMAP`, 1 GB heap) everywhere; measurements in ADR 0013.
 
 ## Chunks
 
@@ -63,7 +64,7 @@ message.
 
 | #   | Chunk                                | Works afterwards                                                                                                                                     | Estimate                         |
 | --- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| 1   | Routing image                        | The engine runs in a container, graph mounted, in both memory modes; `e2e:live` passes against it, surface matching included                         | ~2 h                             |
+| 1   | Routing image                        | The engine runs in a container, graph mounted; `e2e:live` passes against it, surface matching included                                               | ~2 h                             |
 | 2   | Web image                            | The built app is served with `/gh`, `/geo` and `/api` proxied; the e2e suite passes against the built app (today it's only tested on the dev server) | ~1–2 h                           |
 | 3   | API, SQLite and login                | The user and friends can log in; one compose command starts everything; CI builds the images and runs e2e against the web container                  | ~half a day                      |
 | 4   | Saved routes and flags on the server | Save, list and reopen routes; flags follow the user between phone and computer                                                                       | ~half a day to a day             |

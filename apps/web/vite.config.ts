@@ -9,9 +9,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // GraphHopper (services/routing). Same-origin from the browser's point of view, so no CORS setup.
+      // GraphHopper (services/routing). Same-origin from the browser's point of view, so no CORS setup. GH_URL points
+      // it elsewhere, e.g. at the engine's container on another port (as e2e:live's contract tests already read it).
       '/gh': {
-        target: 'http://localhost:8989',
+        target: process.env.GH_URL ?? 'http://localhost:8989',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/gh/, ''),
       },

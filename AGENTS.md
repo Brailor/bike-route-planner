@@ -69,6 +69,11 @@ GraphHopper 11.1, configured in `services/routing/config.yml`. It must keep:
 - `import.osm.ignored_highways` set explicitly (required since GraphHopper 11); empty, because the bike and car
   profiles together need every highway type.
 
+The container image (`services/routing/Dockerfile`, ADR 0013) uses the same `config.yml`; `start.sh` overrides only
+the memory mode (`GH_DATAACCESS`) and bind host (`GH_BIND_HOST`) through environment variables, so keep those settings
+in `config.yml` overridable rather than duplicated. When running the image yourself, mount a copy of the graph-cache
+on a port other than 8989, and stop the container afterwards.
+
 Changing the encoded values needs a re-import: delete `services/routing/data/graph-cache` and start the engine
 (about 5 minutes, about 6.3 GB heap). Until then the engine rejects requests for the new details, so the app can't
 route. Ask the user before doing this to their engine.

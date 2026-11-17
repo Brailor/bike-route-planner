@@ -1,0 +1,5 @@
+# Only config.yml, models and scripts go into the image; the graph is mounted (ADR 0013).
+*
+!config.yml
+!models
+!scripts/start.sh

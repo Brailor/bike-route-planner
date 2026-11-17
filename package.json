@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "start": "pnpm run \"/^(dev|routing:start)$/\"",
     "dev": "pnpm -r --parallel --if-present dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
@@ -17,7 +18,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "routing:setup": "services/routing/scripts/setup.sh",
-    "routing:start": "services/routing/scripts/start.sh"
+    "routing:start": "services/routing/scripts/start.sh",
+    "routing:image": "docker build -t bike-route-planner-routing services/routing"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -483,7 +483,12 @@ flags are avoided strongly rather than blocked, and when a route still has to us
 Plan, decisions and measurements: [containers.md](containers.md). Agreed 2026-11-17; comes before the on-the-ride
 flagging feature, which needs it.
 
-- [ ] Routing image
+- [x] Routing image
+  - `services/routing/Dockerfile` + `pnpm routing:image` (ADR 0013): engine, config and models in the image, the
+    graph mounted read-write (the engine writes `gh.lock` even to read). Reads the graph from disk (`MMAP`, 1 GB
+    heap): routes as fast as whole-in-memory, which needed a 5 GB heap. `e2e:live` passes against it (24 tests);
+    map matching 61 km in 6 s at 512 MB; the Mac-built graph loads on emulated amd64 with the same route to the
+    metre. The dev proxy takes `GH_URL`, so the app can use the container
 - [ ] Web image
 - [ ] API, SQLite and login
 - [ ] Saved routes and flags on the server

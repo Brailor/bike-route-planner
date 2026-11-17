@@ -102,6 +102,18 @@ pnpm routing:start   # serves on :8989; heap via GH_HEAP (default 10g)
 
 # 2. Frontend
 pnpm dev
+
+# Or both at once, in one terminal; Ctrl+C stops both
+pnpm start
+```
+
+The engine also runs as a container (ADR 0013), with a graph-cache already built by `pnpm routing:start`. Stop
+`pnpm routing:start` first: both serve port 8989.
+
+```bash
+pnpm routing:image   # builds bike-route-planner-routing (Docker); the graph is not in the image
+docker run --rm -p 8989:8989 -v "$PWD/services/routing/data/graph-cache:/srv/routing/data/graph-cache" \
+  bike-route-planner-routing
 ```
 
 `pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
@@ -114,7 +126,7 @@ The engine's settings are in `services/routing/config.yml` (what it must keep is
 
 Satellite photos need an ArcGIS Location Platform API key (free tier): copy `apps/web/.env.example` to `apps/web/.env.local` and set `VITE_ESRI_API_KEY`. Without it, the map offers the other backgrounds only.
 
-The Vite dev server proxies `/gh/*` to `http://localhost:8989` and `/geo/*` to the Photon geocoder (`https://photon.komoot.io` for now), so the browser never deals with CORS.
+The Vite dev server proxies `/gh/*` to `http://localhost:8989` (or `GH_URL`) and `/geo/*` to the Photon geocoder (`https://photon.komoot.io` for now), so the browser never deals with CORS.
 
 ---
 
