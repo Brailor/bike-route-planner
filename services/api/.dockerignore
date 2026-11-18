@@ -1,0 +1,4 @@
+# Only the sources go into the image, without their tests.
+*
+!src
+src/**/*.test.ts

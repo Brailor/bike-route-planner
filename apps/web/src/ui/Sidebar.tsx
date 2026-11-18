@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AccountLine } from '../account/AccountLine';
 import { usePlanner, type RouteStatus } from '../state/store';
 import { FlagPanel } from './FlagPanel';
 import { LoopPanel } from './LoopPanel';
@@ -119,6 +120,7 @@ export function Sidebar() {
           <FlagPanel route={waypoints.length >= 2 ? route : undefined} />
         </>
       )}
+      <AccountLine />
     </aside>
   );
 }

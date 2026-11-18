@@ -33,6 +33,16 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
+    // node:test runs every test() it's given; nothing needs to await them.
+    files: ['services/api/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        { allowForKnownSafeCalls: [{ from: 'package', package: 'node:test', name: ['test'] }] },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}'],
     languageOptions: { globals: globals.node },
   },

@@ -714,3 +714,57 @@ body,
   margin: 0;
   accent-color: var(--accent);
 }
+
+/* Login (ADR 0015): the only thing on screen until the user is logged in. */
+.login {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.18);
+}
+
+.login__form h1 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.login__form input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.account .button {
+  padding: 4px 8px;
+}
+
+.account .status {
+  flex-basis: 100%;
+  margin: 0;
+}

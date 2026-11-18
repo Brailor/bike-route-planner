@@ -6,12 +6,21 @@
 	auto_https off
 }
 
+# Routing and address search only for a logged-in user (ADR 0015): the API answers /api/me, and its 401 goes back to
+# the browser. Otherwise anyone who finds the address could use the engine and Photon at the owner's cost.
+(logged_in) {
+	forward_auth {$API_URL:http://api:3000} {
+		uri /api/me
+	}
+}
+
 :8080 {
 	encode zstd gzip
 
 	# Only the engine calls the app makes (GraphHopperEngine); every other engine path stays private.
 	@engine path /gh/route /gh/match
 	handle @engine {
+		import logged_in
 		uri strip_prefix /gh
 		reverse_proxy {$GH_URL:http://routing:8989}
 	}
@@ -22,10 +31,15 @@
 	# Photon address search (ADR 0006). Photon gets only what the user typed and the rounded map centre (AGENTS.md):
 	# not the user's IP address or cookies.
 	handle_path /geo/* {
+		import logged_in
 		reverse_proxy {$PHOTON_URL:https://photon.komoot.io} {
 			header_up -X-Forwarded-For
 			header_up -Cookie
 		}
+	}
+
+	handle /api/* {
+		reverse_proxy {$API_URL:http://api:3000}
 	}
 
 	handle {

@@ -40,3 +40,39 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  # The e2e suite again, through the web and API containers and their login gate (ADR 0015). No routing container:
+  # the graph is too big to build here, and the stubs answer /gh in the browser anyway.
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - run: docker compose up --detach --build --wait web api
+      - name: Add the e2e account
+        run: |
+          password=$(docker compose exec -T api node src/cli.ts add e2e)
+          echo "::add-mask::$password"
+          echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm e2e
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_USER: e2e
+
+      - if: failure()
+        run: docker compose logs
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-containers
+          path: apps/web/playwright-report
+          retention-days: 7

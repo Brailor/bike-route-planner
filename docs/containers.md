@@ -1,6 +1,6 @@
 # Containers, accounts and hosting
 
-Plan agreed with the user on 2026-11-17. Not started yet; progress is ticked in [plan.md](plan.md#containers-and-accounts-added-on-request).
+Plan agreed with the user on 2026-11-17. In progress; progress is ticked in [plan.md](plan.md#containers-and-accounts-added-on-request).
 
 ## Why
 
