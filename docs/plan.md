@@ -495,7 +495,13 @@ flagging feature, which needs it.
     user's IP (mutation-checked against an echo server). `E2E_BASE_URL` points Playwright at it: the stubbed suite
     passes (39), and `e2e:live` through it with the routing container (24; the engine logged the browser's requests
     coming from the web container). `/api` comes with the API
-- [ ] API, SQLite and login
+- [x] API, SQLite and login
+  - `services/api` (ADR 0015): Node 26 running its TypeScript directly, built-in SQLite and scrypt, no
+    dependencies. `pnpm user:add <name>` prints a generated password; sessions are HttpOnly cookies (90 days, only
+    hashes stored). Caddy passes `/gh` and `/geo` only with a valid session (`forward_auth` on `/api/me`). The app
+    shows a login form when `/api/me` says 401, and none on the dev server. `pnpm containers:up` starts all three
+    containers. CI's new `containers` job runs e2e through the web and API containers, logged in (41 locally); `e2e:live`
+    through compose passes (24). Both gate rules and every API rule mutation-checked
 - [ ] Saved routes and flags on the server
 - [ ] Deploy to Fly.io
 

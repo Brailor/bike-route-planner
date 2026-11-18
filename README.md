@@ -38,11 +38,13 @@ This README describes what the app is for and how to run it. The milestones belo
 │  custom models per profile │  custom models can be sent per request
 └────────────────────────────┘
 
+Online, the same pieces run in containers (docs/containers.md): a web container (Caddy) serves the built app and
+passes /gh, /geo and /api on, after a login, to the routing container, Photon and services/api (logins; SQLite).
+
 Later:
-- services/api      Node/TS API in front of the engines (profiles, flags, workout logic)
 - services/transit  MOTIS (self-hosted) or Transitous public API for public transport
 - services/geocoding  Photon (self-hosted), replacing the public API
-- Postgres + PostGIS  when sync/sharing is needed (IndexedDB until then)
+- Postgres + PostGIS  if sharing between users needs more than the API's SQLite file
 ```
 
 ### Tech stack
@@ -66,7 +68,8 @@ Alternatives considered: **BRouter** (very bike-focused, native "nogo" areas; it
 
 ```
 route-planner/
-  apps/web/                 # frontend
+  apps/web/                 # frontend; Dockerfile + Caddyfile for its container
+  services/api/             # logins (later saved routes, flags): Node, built-in SQLite, no dependencies
   services/routing/
     config.yml              # GraphHopper config
     models/                 # custom models: road-model.json, gravel-model.json, mtb-model.json, car-model.json
@@ -79,6 +82,7 @@ route-planner/
     adr/                    # architecture decisions
     spikes/                 # findings from early experiments
   .vscode/tasks.json        # "dev" compound task: GraphHopper + Vite
+  compose.yaml              # all containers: pnpm containers:up
   pnpm-workspace.yaml
   README.md                 # what the app is for, how to run it, the milestones
   AGENTS.md                 # how to work on the code (for coding agents and contributors)
@@ -116,16 +120,15 @@ docker run --rm -p 8989:8989 -v "$PWD/services/routing/data/graph-cache:/srv/rou
   bike-route-planner-routing
 ```
 
-The web container (ADR 0014) serves the built app and passes `/gh` to the engine's container and `/geo` to Photon,
-as the dev server does. Run both on one Docker network (one command for this comes with the API):
+The whole app runs in containers as it will online: the web container (ADR 0014) in front of the engine, the API
+with its logins (ADR 0015) and Photon. It needs the graph-cache too; stop `pnpm routing:start` first.
 
 ```bash
-pnpm web:image       # builds bike-route-planner-web
-docker network create brp
-docker run --rm -d --name routing --network brp \
-  -v "$PWD/services/routing/data/graph-cache:/srv/routing/data/graph-cache" bike-route-planner-routing
-docker run --rm -d --name web --network brp -p 8080:8080 bike-route-planner-web   # http://localhost:8080
+pnpm containers:up   # builds and starts all three; the app is on http://localhost:8080
+pnpm user:add anna   # creates the account, running or not, and prints its password (again: a new password)
 ```
+
+Accounts are kept in a Docker volume (`docker compose down -v` deletes them). `pnpm dev` has no accounts and no login.
 
 `pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
 Sample requests are in `services/routing/routing.http`.
@@ -216,7 +219,7 @@ Invert M4: find one-way rides that start and end near stations reachable from ho
 ## Non-goals (for now)
 
 - Native mobile apps
-- User accounts, sync, social features
+- Sign-up, sharing between users, social features (logins for the owner and a few friends: ADR 0015)
 - Turn-by-turn navigation
 - Global coverage, for now. The target region is **Austria and Hungary**; the whole world is the long-term goal, so region limits live in one place (`apps/web/src/region.ts`).
 

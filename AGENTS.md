@@ -77,6 +77,11 @@ on a port other than 8989, and stop the container afterwards.
 The web container (`apps/web/Caddyfile`, ADR 0014) passes on only the engine paths the app calls (`/route`,
 `/match`). A new endpoint in `GraphHopperEngine` must be allowed there too, and `e2e:live` run through the container.
 
+`pnpm containers:up` (compose.yaml) runs all containers; the web container passes `/gh` and `/geo` only with a login
+(ADR 0015). To test it yourself, use your own project name and an override file for the ports and a copy of the
+graph-cache (`docker compose -p <name> -f compose.yaml -f <override> ...`), then `down -v` and remove its images. The
+e2e suite runs against it with `E2E_BASE_URL`, `E2E_USER` and `E2E_PASSWORD` (an account from `src/cli.ts add`).
+
 Changing the encoded values needs a re-import: delete `services/routing/data/graph-cache` and start the engine
 (about 5 minutes, about 6.3 GB heap). Until then the engine rejects requests for the new details, so the app can't
 route. Ask the user before doing this to their engine.

@@ -155,3 +155,6 @@ services/routing/data/
 # Playwright
 playwright-report/
 test-results/
+
+# Session cookie of an e2e run against the containers (apps/web/e2e/login.setup.ts)
+apps/web/e2e/.session.json

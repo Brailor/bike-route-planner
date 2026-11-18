@@ -20,7 +20,9 @@
     "routing:setup": "services/routing/scripts/setup.sh",
     "routing:start": "services/routing/scripts/start.sh",
     "routing:image": "docker build -t bike-route-planner-routing services/routing",
-    "web:image": "docker build -f apps/web/Dockerfile -t bike-route-planner-web ."
+    "web:image": "docker build -f apps/web/Dockerfile -t bike-route-planner-web .",
+    "containers:up": "docker compose up --build",
+    "user:add": "docker compose run --rm api node src/cli.ts add"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

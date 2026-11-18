@@ -1,0 +1,24 @@
+# The whole app in containers (docs/containers.md): pnpm containers:up, then http://localhost:8080. Add an
+# account with pnpm user:add <name>. Only the web container is reachable from outside; it passes requests on to
+# the others.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - 8080:8080
+
+  api:
+    build: services/api
+    volumes:
+      - api-data:/srv/api/data
+
+  routing:
+    build: services/routing
+    # The graph built by pnpm routing:start (ADR 0013). Don't run pnpm routing:start at the same time.
+    volumes:
+      - ./services/routing/data/graph-cache:/srv/routing/data/graph-cache
+
+volumes:
+  api-data:
