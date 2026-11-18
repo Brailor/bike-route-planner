@@ -16,6 +16,13 @@ export function openDb(path: string): DatabaseSync {
       user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
       expires_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS flags (
+      user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      flag TEXT NOT NULL,
+      PRIMARY KEY (user_id, id)
+    );
   `);
   return db;
 }

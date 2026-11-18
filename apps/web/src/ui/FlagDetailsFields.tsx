@@ -26,7 +26,12 @@ export function FlagDetailsFields({ reason, note, onReason, onNote }: Props) {
       </label>
       <label className="field">
         <span className="field__label">Note (optional)</span>
-        <input type="text" value={note} onChange={(e) => onNote(e.target.value)} />
+        <input
+          type="text"
+          value={note}
+          maxLength={2000} // the server keeps up to 2000 characters (services/api/src/flags.ts)
+          onChange={(e) => onNote(e.target.value)}
+        />
       </label>
     </>
   );

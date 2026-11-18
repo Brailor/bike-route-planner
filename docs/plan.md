@@ -503,6 +503,12 @@ flagging feature, which needs it.
     containers. CI's new `containers` job runs e2e through the web and API containers, logged in (41 locally); `e2e:live`
     through compose passes (24). Both gate rules and every API rule mutation-checked
 - [ ] Saved routes and flags on the server
+  - Flags done (ADR 0016): `GET/PUT/DELETE /api/flags`, each user only their own, every flag checked by the server.
+    Logged in, the app keeps flags on the server and moves the browser's flags to the account once. Logged-in e2e
+    (43 + the `location.spec` flake below) and the dev-server suite (39) pass; every API and app rule
+    mutation-checked. Saved routes still to do
+  - Seen while testing: `location.spec` ("flies to where the user is now", "opens the map on the user") fails about
+    1 run in 10 against the web container, at HEAD too; CI's retry hides it
 - [ ] Deploy to Fly.io
 
 ### M5: Station-to-station discovery

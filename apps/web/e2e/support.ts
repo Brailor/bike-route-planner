@@ -22,7 +22,31 @@ export const fixture = (name: string) =>
     ),
   ) as Fixture;
 
+/**
+ * Logged in (the containers), flags are kept on the server for the suite's one account, which every test shares.
+ * Each page gets its own flags in memory instead, so tests running side by side don't see each other's flags;
+ * account-flags.spec.ts tests the server's.
+ */
+async function stubAccountFlags(page: Page) {
+  const flags = new Map<string, unknown>();
+  await page.route('**/api/flags**', async (route) => {
+    const req = route.request();
+    const id = decodeURIComponent(new URL(req.url()).pathname.split('/')[3] ?? '');
+    if (req.method() === 'GET') return route.fulfill({ json: [...flags.values()] });
+    if (req.method() === 'PUT') flags.set(id, req.postDataJSON());
+    if (req.method() === 'DELETE') flags.delete(id);
+    await route.fulfill({ status: 204 });
+  });
+}
+
+const stubbed = new WeakSet<Page>();
+
 export async function openMap(page: Page) {
+  // Once per page: a later openMap is a reload, which keeps the page's flags.
+  if (process.env.E2E_USER && !stubbed.has(page)) {
+    stubbed.add(page);
+    await stubAccountFlags(page);
+  }
   await page.goto('/');
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap');
 }

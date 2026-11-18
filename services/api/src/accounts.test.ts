@@ -9,7 +9,7 @@ test('a generated password logs in; a wrong one or an unknown name does not', as
   assert.ok(password.length >= 24);
   const token = await logIn(db, 'anna', password);
   assert.ok(token);
-  assert.equal(sessionUser(db, token), 'anna');
+  assert.equal(sessionUser(db, token)?.name, 'anna');
   assert.equal(await logIn(db, 'anna', `${password}x`), undefined);
   assert.equal(await logIn(db, 'bert', password), undefined);
 });
@@ -31,7 +31,7 @@ test('a session ends when it expires or on logout', async () => {
   const password = await setPassword(db, 'anna');
   const now = Date.now();
   const token = (await logIn(db, 'anna', password, now))!;
-  assert.equal(sessionUser(db, token, now + SESSION_MS - 1), 'anna');
+  assert.equal(sessionUser(db, token, now + SESSION_MS - 1)?.name, 'anna');
   assert.equal(sessionUser(db, token, now + SESSION_MS), undefined);
   // The next login clears expired sessions away.
   await logIn(db, 'anna', password, now + SESSION_MS);

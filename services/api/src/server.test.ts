@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
 import { setPassword } from './accounts.ts';
@@ -66,6 +66,87 @@ test('logout ends the session and clears the cookie', async () => {
   assert.equal(out.status, 204);
   assert.match(out.headers.get('set-cookie')!, /^session=; .*Max-Age=0$/);
   assert.equal((await fetch(`${base}/api/me`, { headers: { Cookie: cookie } })).status, 401);
+});
+
+const flag = {
+  id: 'f1',
+  geometry: {
+    type: 'LineString',
+    coordinates: [
+      [16.37, 48.2],
+      [16.38, 48.21],
+    ],
+  },
+  createdAt: '2026-11-18T09:00:00.000Z',
+};
+const putFlag = (cookie: string, body: unknown, id = 'f1') =>
+  fetch(`${base}/api/flags/${id}`, {
+    method: 'PUT',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+const flagsOf = async (cookie: string): Promise<unknown> =>
+  (await fetch(`${base}/api/flags`, { headers: { Cookie: cookie } })).json();
+
+test('a logged-in user saves, lists and deletes their flags; another user sees none of them', async () => {
+  const anna = cookieOf(await logIn({ username: 'anna', password }));
+  const benPassword = await setPassword(db, 'ben');
+  const ben = cookieOf(await logIn({ username: 'ben', password: benPassword }));
+
+  assert.equal((await putFlag(anna, flag)).status, 204);
+  assert.equal((await putFlag(anna, { ...flag, note: 'Gate' })).status, 204);
+  assert.deepEqual(await flagsOf(anna), [{ ...flag, note: 'Gate' }]);
+  assert.deepEqual(await flagsOf(ben), []);
+
+  // Ben can't delete Anna's flag, and a flag line of 10,000 points fits in a request.
+  const long = {
+    ...flag,
+    geometry: { ...flag.geometry, coordinates: Array(10_000).fill([16.371234, 48.212345]) },
+  };
+  assert.equal(
+    (await fetch(`${base}/api/flags/f1`, { method: 'DELETE', headers: { Cookie: ben } })).status,
+    204,
+  );
+  assert.equal(((await flagsOf(anna)) as unknown[]).length, 1);
+  assert.equal((await putFlag(anna, long)).status, 204);
+  assert.deepEqual(await flagsOf(anna), [long]);
+
+  assert.equal(
+    (await fetch(`${base}/api/flags/f1`, { method: 'DELETE', headers: { Cookie: anna } })).status,
+    204,
+  );
+  assert.deepEqual(await flagsOf(anna), []);
+});
+
+test('flags need a login, a valid flag and a matching id', async () => {
+  const anna = cookieOf(await logIn({ username: 'anna', password }));
+  assert.equal((await fetch(`${base}/api/flags`)).status, 401);
+  assert.equal((await putFlag('', flag)).status, 401);
+  assert.equal((await fetch(`${base}/api/flags/f1`, { method: 'DELETE' })).status, 401);
+
+  assert.equal((await putFlag(anna, flag, 'f2')).status, 400);
+  assert.equal((await putFlag(anna, { ...flag, reason: 'muddy' })).status, 400);
+  assert.equal((await putFlag(anna, { ...flag, note: 'x'.repeat(1_000_001) })).status, 400);
+  assert.deepEqual(await flagsOf(anna), []);
+});
+
+test('a character split between two parts of a request body arrives whole', async () => {
+  const cookie = cookieOf(await logIn({ username: 'anna', password }));
+  const body = Buffer.from(JSON.stringify({ ...flag, note: 'Brücke gesperrt' }));
+  const cut = body.indexOf('ü') + 1; // between the two bytes of ü
+  const status = await new Promise<number | undefined>((resolve, reject) => {
+    const req = request(
+      `${base}/api/flags/f1`,
+      { method: 'PUT', headers: { Cookie: cookie, 'Content-Type': 'application/json' } },
+      (res) => resolve(res.resume().statusCode),
+    );
+    req.on('error', reject);
+    req.write(body.subarray(0, cut));
+    setTimeout(() => req.end(body.subarray(cut)), 50);
+  });
+  assert.equal(status, 204);
+  assert.deepEqual(await flagsOf(cookie), [{ ...flag, note: 'Brücke gesperrt' }]);
+  await fetch(`${base}/api/flags/f1`, { method: 'DELETE', headers: { Cookie: cookie } });
 });
 
 test('anything else is a 404', async () => {

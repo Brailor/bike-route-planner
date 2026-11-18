@@ -3,10 +3,24 @@ import { usePlanner } from '../state/store';
 import type { AvoidFlag } from '../types';
 import { openPlannerDb } from './db';
 import { createFlagStore, type FlagStore } from './flagStore';
+import { createServerFlagStore, moveFlags } from './serverFlagStore';
 
-const openDefault = () => openPlannerDb().then(createFlagStore);
+const openBrowserFlags = () => openPlannerDb().then(createFlagStore);
 
-const warn = (err: unknown) => console.warn('Could not save flags in this browser:', err);
+/**
+ * The logged-in user's flags, on the server. Flags saved in this browser before go up to the account first; if the
+ * browser's storage is blocked there are none to move.
+ */
+export async function openAccountFlags(
+  server: FlagStore = createServerFlagStore(),
+  openBrowser: () => Promise<FlagStore> = openBrowserFlags,
+): Promise<FlagStore> {
+  const browser = await openBrowser().catch(() => undefined);
+  if (browser) await moveFlags(browser, server);
+  return server;
+}
+
+const warn = (err: unknown) => console.warn('Could not save flags:', err);
 
 /** Writes the difference between two flag lists: new or changed flags are saved, missing ones removed. */
 export function syncFlags(store: FlagStore, before: AvoidFlag[], after: AvoidFlag[]) {
@@ -18,10 +32,11 @@ export function syncFlags(store: FlagStore, before: AvoidFlag[], after: AvoidFla
 }
 
 /**
- * Loads the saved flags into the store, then keeps storage in step with it. Without storage (e.g. blocked by the
- * browser) flags still work, for this session only.
+ * Loads the saved flags into the store, then keeps storage in step with it: the browser's, or with `openAccountFlags`
+ * the server's. Without storage (e.g. blocked by the browser, or the server out of reach) flags still work, for this
+ * session only.
  */
-export function useFlagPersistence(open: () => Promise<FlagStore> = openDefault) {
+export function useFlagPersistence(open: () => Promise<FlagStore> = openBrowserFlags) {
   useEffect(() => {
     let cancelled = false;
     let unsubscribe = () => {};

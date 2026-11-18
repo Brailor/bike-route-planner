@@ -62,14 +62,17 @@ export async function logIn(
   return token;
 }
 
-/** The name of the session's user, or undefined for an unknown or expired session. */
-export function sessionUser(db: DatabaseSync, token: string, now = Date.now()): string | undefined {
-  const row = db
+/** The session's user, or undefined for an unknown or expired session. */
+export function sessionUser(
+  db: DatabaseSync,
+  token: string,
+  now = Date.now(),
+): { id: number; name: string } | undefined {
+  return db
     .prepare(
-      'SELECT users.name FROM sessions JOIN users ON users.id = sessions.user_id WHERE token_hash = ? AND expires_at > ?',
+      'SELECT users.id, users.name FROM sessions JOIN users ON users.id = sessions.user_id WHERE token_hash = ? AND expires_at > ?',
     )
-    .get(tokenHash(token), now) as { name: string } | undefined;
-  return row?.name;
+    .get(tokenHash(token), now) as { id: number; name: string } | undefined;
 }
 
 export function logOut(db: DatabaseSync, token: string): void {

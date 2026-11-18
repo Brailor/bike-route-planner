@@ -69,7 +69,7 @@ Alternatives considered: **BRouter** (very bike-focused, native "nogo" areas; it
 ```
 route-planner/
   apps/web/                 # frontend; Dockerfile + Caddyfile for its container
-  services/api/             # logins (later saved routes, flags): Node, built-in SQLite, no dependencies
+  services/api/             # logins and flags (later saved routes): Node, built-in SQLite, no dependencies
   services/routing/
     config.yml              # GraphHopper config
     models/                 # custom models: road-model.json, gravel-model.json, mtb-model.json, car-model.json
