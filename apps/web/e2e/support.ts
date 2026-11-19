@@ -23,18 +23,19 @@ export const fixture = (name: string) =>
   ) as Fixture;
 
 /**
- * Logged in (the containers), flags are kept on the server for the suite's one account, which every test shares.
- * Each page gets its own flags in memory instead, so tests running side by side don't see each other's flags;
- * account-flags.spec.ts tests the server's.
+ * Logged in (the containers), flags and saved routes are kept on the server for the suite's one account, which every
+ * test shares. Each page gets its own in memory instead, so tests running side by side don't see each other's;
+ * account.spec.ts tests the server's.
  */
-async function stubAccountFlags(page: Page) {
-  const flags = new Map<string, unknown>();
-  await page.route('**/api/flags**', async (route) => {
+async function stubAccountLists(page: Page) {
+  const lists = { flags: new Map<string, unknown>(), routes: new Map<string, unknown>() };
+  await page.route(/\/api\/(flags|routes)(\/|$)/, async (route) => {
     const req = route.request();
-    const id = decodeURIComponent(new URL(req.url()).pathname.split('/')[3] ?? '');
-    if (req.method() === 'GET') return route.fulfill({ json: [...flags.values()] });
-    if (req.method() === 'PUT') flags.set(id, req.postDataJSON());
-    if (req.method() === 'DELETE') flags.delete(id);
+    const [, , name = '', id = ''] = new URL(req.url()).pathname.split('/');
+    const items = lists[name as keyof typeof lists];
+    if (req.method() === 'GET') return route.fulfill({ json: [...items.values()] });
+    if (req.method() === 'PUT') items.set(decodeURIComponent(id), req.postDataJSON());
+    if (req.method() === 'DELETE') items.delete(decodeURIComponent(id));
     await route.fulfill({ status: 204 });
   });
 }
@@ -45,7 +46,7 @@ export async function openMap(page: Page) {
   // Once per page: a later openMap is a reload, which keeps the page's flags.
   if (process.env.E2E_USER && !stubbed.has(page)) {
     stubbed.add(page);
-    await stubAccountFlags(page);
+    await stubAccountLists(page);
   }
   await page.goto('/');
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap');

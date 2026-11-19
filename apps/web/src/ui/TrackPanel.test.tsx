@@ -187,6 +187,23 @@ describe('elevation for an opened track', () => {
     expect(state().track?.elevation).toBe('looked_up');
   });
 
+  it('saves the track as it now is, with where its elevation came from', async () => {
+    tile.mockResolvedValueOnce(FLAT_300);
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    await user.upload(screen.getByLabelText('Open GPX'), gpx(TRACK));
+    await screen.findByRole('region', { name: 'Opened track' });
+    await user.click(screen.getByRole('button', { name: 'Save route' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(state().savedRoutes).toEqual([
+      expect.objectContaining({
+        name: 'Sunday ride',
+        geometry: { type: 'LineString', coordinates: state().track?.coordinates },
+        elevation: 'looked_up',
+      }),
+    ]);
+  });
+
   it('says why there’s no profile when it can’t be looked up', async () => {
     await openTrack();
     expect(screen.queryByTestId('elevation-chart')).not.toBeInTheDocument();

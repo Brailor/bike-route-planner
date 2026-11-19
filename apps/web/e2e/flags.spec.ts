@@ -80,7 +80,7 @@ test('edit and delete a flag; deleting it frees the section again', async ({ pag
   await page.getByRole('button', { name: /^Too steep · / }).click();
   await page.getByRole('combobox', { name: 'Reason (optional)' }).selectOption('Overgrown');
   await page.getByRole('textbox', { name: 'Note (optional)' }).fill('brambles');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Overgrown · .*brambles/ })).toBeVisible();
   await openMap(page);
   await expect(page.getByRole('button', { name: /^Overgrown · .*brambles/ })).toBeVisible();

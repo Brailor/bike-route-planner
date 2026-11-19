@@ -1,5 +1,6 @@
 // Elevation for an opened track whose file has little or none (ADR 0011): gaps filled in from the neighbours, and a
 // track with none at all looked up in elevation tiles (terrarium encoding, as the hillshade uses).
+import type { TrackElevation } from '../types';
 import { cumulativeM } from './sections';
 
 type Coordinates = readonly (readonly number[])[];
@@ -109,9 +110,6 @@ export async function lookUpElevation(
     return [lon, lat, sample(tile, px, py)];
   });
 }
-
-/** Where an opened track's elevation came from: the file, the elevation tiles, or nowhere (no chart then). */
-export type TrackElevation = 'file' | 'looked_up' | 'none';
 
 /**
  * An opened track's coordinates with elevation: the file's own, or, when it has none, looked up. When that fails

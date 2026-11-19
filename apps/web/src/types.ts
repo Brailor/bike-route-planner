@@ -13,18 +13,22 @@ export interface ProfileSettings {
   avoidMainRoads?: boolean;
 }
 
-export interface PlannedRoute {
+/**
+ * A route the user saved: the line itself, as it was planned, generated as a loop or opened from a file. It reopens
+ * as an opened track (ADR 0016).
+ */
+export interface SavedRoute {
   id: string;
   name: string;
-  waypoints: LonLat[];
-  settings: ProfileSettings;
-  /** Elevation as the 3rd coordinate. */
+  /** [lon, lat, ele?]; with elevation 'none', no elevation. */
   geometry: LineString;
   distanceM: number;
-  ascentM: number;
-  predictedDurationS?: number;
+  elevation: TrackElevation;
   createdAt: string;
 }
+
+/** Where a track's elevation came from: its own (a file, the engine), the elevation tiles, or nowhere (no chart). */
+export type TrackElevation = 'file' | 'looked_up' | 'none';
 
 export interface AvoidFlag {
   id: string;

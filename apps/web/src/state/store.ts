@@ -7,11 +7,19 @@ import type { LoopScore } from '../loops/score';
 import { INITIAL_VIEW } from '../map/view';
 import { DEFAULT_SETTINGS } from '../profiles/defaults';
 import type { RouteAttributes, RouteResult, RoutingError } from '../routing/types';
-import type { TrackElevation } from '../track/elevation';
 import type { Reroute } from '../track/reroute';
 import { spliceAttributes } from '../track/roads';
 import { cumulativeM, flaggedSections, type FlaggedSection } from '../track/sections';
-import type { AvoidFlag, LonLat, Profile, ProfileSettings, UserSettings, Workout } from '../types';
+import type {
+  AvoidFlag,
+  LonLat,
+  Profile,
+  ProfileSettings,
+  SavedRoute,
+  TrackElevation,
+  UserSettings,
+  Workout,
+} from '../types';
 
 export type RouteStatus =
   | { state: 'idle' }
@@ -135,6 +143,8 @@ interface PlannerState {
   loops: LoopSearch | undefined;
   /** An opened GPX track on show; like loops, it takes the route's place until closed. */
   track: ImportedTrack | undefined;
+  /** The user's saved routes, oldest first (ADR 0016). */
+  savedRoutes: SavedRoute[];
 
   addWaypoint: (point: LonLat) => void;
   insertWaypoint: (index: number, point: LonLat) => void;
@@ -201,6 +211,12 @@ interface PlannerState {
   closeLoops: () => void;
   /** Shows a track from a file and finds where it runs along flags. Brings the first one into view, if any. */
   openTrack: (name: string, coordinates: number[][], elevation: TrackElevation) => void;
+  /** Saves a line under a name; it reopens as a track. */
+  saveRoute: (name: string, coordinates: number[][], elevation: TrackElevation) => void;
+  loadSavedRoutes: (saved: SavedRoute[]) => void;
+  /** Opens a saved route as a track, in place of the route or loops on show. */
+  openSavedRoute: (id: string) => void;
+  deleteSavedRoute: (id: string) => void;
   /** Leaves the section being asked about as it is, and asks about the next. */
   keepSection: () => void;
   /** Reroutes around the section being asked about, or around it and every one after it (useTrackCorrection). */
@@ -289,6 +305,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     workout: undefined,
     loops: undefined,
     track: undefined,
+    savedRoutes: [],
 
     addWaypoint: (point) => edit((w) => [...w, point]),
     insertWaypoint: (index, point) => edit((w) => [...w.slice(0, index), point, ...w.slice(index)]),
@@ -592,6 +609,31 @@ export const usePlanner = create<PlannerState>()((set, get) => {
             }
           : s,
       ),
+    saveRoute: (name, coordinates, elevation) =>
+      set((s) => ({
+        savedRoutes: [
+          ...s.savedRoutes,
+          {
+            id: crypto.randomUUID(),
+            name,
+            geometry: { type: 'LineString', coordinates },
+            distanceM: cumulativeM(coordinates).at(-1) ?? 0,
+            elevation,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      })),
+    loadSavedRoutes: (saved) =>
+      set((s) => {
+        const savedIds = new Set(saved.map((r) => r.id));
+        return { savedRoutes: [...saved, ...s.savedRoutes.filter((r) => !savedIds.has(r.id))] };
+      }),
+    openSavedRoute: (id) => {
+      const saved = get().savedRoutes.find((r) => r.id === id);
+      if (saved) get().openTrack(saved.name, saved.geometry.coordinates, saved.elevation);
+    },
+    deleteSavedRoute: (id) =>
+      set((s) => ({ savedRoutes: s.savedRoutes.filter((r) => r.id !== id) })),
     closeTrack: () => set((s) => (s.track ? { track: undefined, hoverIndex: undefined } : s)),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>

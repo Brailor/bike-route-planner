@@ -144,6 +144,20 @@ describe('LoopPanel', () => {
     expect(click).toHaveBeenCalledOnce();
   });
 
+  it('saves the selected loop under its name', async () => {
+    const { results } = show();
+    render(<Panel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save route' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(usePlanner.getState().savedRoutes).toEqual([
+      expect.objectContaining({
+        name: 'Threshold loop 3.4 km',
+        geometry: { type: 'LineString', coordinates: results[0]!.loop.route.geometry.coordinates },
+        elevation: 'file',
+      }),
+    ]);
+  });
+
   it('shows which way the loop runs, and asks for the other way', async () => {
     show();
     render(<Panel />);

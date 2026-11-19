@@ -29,5 +29,5 @@ stay in the browser's IndexedDB. The dev server has no accounts (ADR 0015) and m
 - Without a connection, flags made on a ride last only until the page is reloaded (as with blocked browser
   storage). Keeping them in the browser until the server has them is for the on-the-ride feature.
 - Logged in, the e2e suite shares one account, so each test gets its own flags in memory (`e2e/support.ts`), and
-  `e2e/account-flags.spec.ts` alone tests the server's, one test at a time.
+  `e2e/account.spec.ts` alone tests the server's, one test at a time.
 - Settings (FTP, weight, map background) stay in the browser for now.

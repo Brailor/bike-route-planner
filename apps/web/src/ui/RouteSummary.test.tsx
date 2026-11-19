@@ -26,6 +26,19 @@ describe('RouteSummary', () => {
     expect(screen.getByTestId('stat-time')).toHaveTextContent('12 min');
   });
 
+  it('saves the route under the name its GPX gets', async () => {
+    render(<RouteSummary route={fixtureRoute} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save route' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(usePlanner.getState().savedRoutes).toEqual([
+      expect.objectContaining({
+        name: expect.stringMatching(/^Gravel route \d/) as string,
+        geometry: { type: 'LineString', coordinates: fixtureRoute.geometry.coordinates },
+        elevation: 'file',
+      }),
+    ]);
+  });
+
   it('shows the surface breakdown and elevation chart', () => {
     render(<RouteSummary route={fixtureRoute} />);
     expect(screen.getByTestId('surface-paved')).toBeInTheDocument();

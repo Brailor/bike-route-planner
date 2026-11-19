@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { downloadGpx } from '../gpx/download';
+import { SaveRouteButton } from './SavedRoutes';
 import { isClockwise } from '../loops/direction';
 import { loopHighlights } from '../loops/explain';
 import { findStops } from '../loops/features';
@@ -126,6 +127,7 @@ function SelectedLoop({ loops }: { loops: LoopSearch }) {
       >
         Export GPX
       </button>
+      <SaveRouteButton name={name} coordinates={route.geometry.coordinates} elevation="file" />
     </div>
   );
 }

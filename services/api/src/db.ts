@@ -23,6 +23,13 @@ export function openDb(path: string): DatabaseSync {
       flag TEXT NOT NULL,
       PRIMARY KEY (user_id, id)
     );
+    CREATE TABLE IF NOT EXISTS routes (
+      user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      route TEXT NOT NULL,
+      PRIMARY KEY (user_id, id)
+    );
   `);
   return db;
 }

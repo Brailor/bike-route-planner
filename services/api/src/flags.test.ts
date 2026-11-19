@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { setPassword } from './accounts.ts';
 import { openDb } from './db.ts';
-import { listFlags, MAX_NOTE_CHARS, MAX_POINTS, parseFlag, removeFlag, saveFlag } from './flags.ts';
+import { MAX_NOTE_CHARS, MAX_POINTS, parseFlag, type Flag } from './flags.ts';
+import { listItems, removeItem, saveItem } from './items.ts';
 
 const flag = {
   id: 'a1b2-c3',
@@ -58,7 +59,7 @@ test('parseFlag refuses anything that isn’t a flag', () => {
   assert.ok(parseFlag(line(Array.from({ length: MAX_POINTS }, () => [16, 48]))));
 });
 
-test('each user lists, replaces and removes only their own flags, oldest first', async () => {
+test('each user lists, replaces and removes only their own items, oldest first', async () => {
   const db = openDb(':memory:');
   await setPassword(db, 'anna');
   await setPassword(db, 'ben');
@@ -70,20 +71,22 @@ test('each user lists, replaces and removes only their own flags, oldest first',
   });
   // Saved in neither date nor id order.
   const older = at('older', 1);
-  saveFlag(db, anna, at('m-newest', 3));
-  saveFlag(db, anna, older);
-  saveFlag(db, anna, at('a-middle', 2));
-  saveFlag(db, ben, { ...older, note: 'Ben’s' });
+  saveItem(db, 'flags', anna, at('m-newest', 3));
+  saveItem(db, 'flags', anna, older);
+  saveItem(db, 'flags', anna, at('a-middle', 2));
+  const bens: Flag = { ...older, note: 'Ben’s' };
+  saveItem(db, 'flags', ben, bens);
   assert.deepEqual(
-    listFlags(db, anna).map((f) => f.id),
+    (listItems(db, 'flags', anna) as { id: string }[]).map((f) => f.id),
     ['older', 'a-middle', 'm-newest'],
   );
 
-  saveFlag(db, anna, { ...older, note: 'Changed' });
-  assert.equal(listFlags(db, anna)[0]?.note, 'Changed');
-  assert.equal(listFlags(db, ben)[0]?.note, 'Ben’s');
+  const changed: Flag = { ...older, note: 'Changed' };
+  saveItem(db, 'flags', anna, changed);
+  assert.equal((listItems(db, 'flags', anna)[0] as { note?: string }).note, 'Changed');
+  assert.equal((listItems(db, 'flags', ben)[0] as { note?: string }).note, 'Ben’s');
 
-  removeFlag(db, ben, 'older');
-  assert.deepEqual(listFlags(db, ben), []);
-  assert.equal(listFlags(db, anna).length, 3);
+  removeItem(db, 'flags', ben, 'older');
+  assert.deepEqual(listItems(db, 'flags', ben), []);
+  assert.equal(listItems(db, 'flags', anna).length, 3);
 });

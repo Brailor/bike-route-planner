@@ -502,11 +502,16 @@ flagging feature, which needs it.
     shows a login form when `/api/me` says 401, and none on the dev server. `pnpm containers:up` starts all three
     containers. CI's new `containers` job runs e2e through the web and API containers, logged in (41 locally); `e2e:live`
     through compose passes (24). Both gate rules and every API rule mutation-checked
-- [ ] Saved routes and flags on the server
+- [x] Saved routes and flags on the server
   - Flags done (ADR 0016): `GET/PUT/DELETE /api/flags`, each user only their own, every flag checked by the server.
     Logged in, the app keeps flags on the server and moves the browser's flags to the account once. Logged-in e2e
     (43 + the `location.spec` flake below) and the dev-server suite (39) pass; every API and app rule
-    mutation-checked. Saved routes still to do
+    mutation-checked
+  - Saved routes done (ADR 0017): "Save route" next to "Export GPX" on a route, a loop and an opened track saves the
+    line under a name; "Saved routes" in the sidebar opens one as an opened track, or deletes it. On the server
+    (`/api/routes`) when logged in, in IndexedDB otherwise, moved to the account on the first login like flags; one
+    storage path serves both lists. Dev-server e2e (40) and logged-in e2e (46) pass, apart from the `location.spec`
+    flake below; API and app rules mutation-checked
   - Seen while testing: `location.spec` ("flies to where the user is now", "opens the map on the user") fails about
     1 run in 10 against the web container, at HEAD too; CI's retry hides it
 - [ ] Deploy to Fly.io

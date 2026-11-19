@@ -9,6 +9,7 @@ import { surfaceBreakdown } from '../route/surface';
 import { cumulativeM } from '../track/sections';
 import type { AvoidFlag } from '../types';
 import { ElevationChart } from './ElevationChart';
+import { SaveRouteButton } from './SavedRoutes';
 import { formatDistance } from './format';
 import { SurfaceBar } from './SurfaceBar';
 
@@ -233,6 +234,12 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
       >
         Export GPX
       </button>
+      <SaveRouteButton
+        name={track.name}
+        coordinates={track.coordinates}
+        elevation={track.elevation}
+        disabled={rerouting !== undefined}
+      />
     </section>
   );
 }

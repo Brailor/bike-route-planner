@@ -8,6 +8,7 @@ import { riderFrom } from '../speed/rider';
 import { usePlanner } from '../state/store';
 import { ElevationChart } from './ElevationChart';
 import { formatDistance, formatDuration, formatElevation } from './format';
+import { SaveRouteButton } from './SavedRoutes';
 import { SurfaceBar } from './SurfaceBar';
 
 export function RouteSummary({ route }: { route: RouteResult }) {
@@ -18,10 +19,7 @@ export function RouteSummary({ route }: { route: RouteResult }) {
   // The speed model's time, not the engine's: it knows the rider's power and weight (README M3).
   const ride = useMemo(() => predictRide(route, profile, rider), [route, profile, rider]);
 
-  function exportGpx() {
-    const name = `${PROFILE_LABELS[profile]} route ${formatDistance(route.distanceM)}`;
-    downloadGpx(name, route.geometry.coordinates);
-  }
+  const name = `${PROFILE_LABELS[profile]} route ${formatDistance(route.distanceM)}`;
 
   return (
     <section className="panel-section" aria-label="Route">
@@ -43,9 +41,14 @@ export function RouteSummary({ route }: { route: RouteResult }) {
       </dl>
       <SurfaceBar breakdown={breakdown} />
       <ElevationChart coordinates={route.geometry.coordinates} />
-      <button type="button" className="button button--primary" onClick={exportGpx}>
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={() => downloadGpx(name, route.geometry.coordinates)}
+      >
         Export GPX
       </button>
+      <SaveRouteButton name={name} coordinates={route.geometry.coordinates} elevation="file" />
     </section>
   );
 }

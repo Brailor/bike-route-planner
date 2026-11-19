@@ -149,7 +149,58 @@ test('a character split between two parts of a request body arrives whole', asyn
   await fetch(`${base}/api/flags/f1`, { method: 'DELETE', headers: { Cookie: cookie } });
 });
 
+test('saved routes are their own collection, and a 50,000-point route fits in a request', async () => {
+  const cookie = cookieOf(await logIn({ username: 'anna', password }));
+  const route = {
+    id: 'r1',
+    name: 'Long ride',
+    geometry: {
+      type: 'LineString',
+      coordinates: Array(50_000).fill([16.3712345, 48.2101234, 183.12]),
+    },
+    distanceM: 250_000,
+    elevation: 'file',
+    createdAt: '2026-11-18T09:00:00.000Z',
+  };
+  const put = (body: unknown, id = 'r1') =>
+    fetch(`${base}/api/routes/${id}`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const list = async (): Promise<unknown> =>
+    (await fetch(`${base}/api/routes`, { headers: { Cookie: cookie } })).json();
+
+  assert.equal((await fetch(`${base}/api/routes`)).status, 401);
+  assert.equal((await put(route)).status, 204);
+  assert.deepEqual(await list(), [route]);
+  assert.deepEqual(await flagsOf(cookie), []);
+  // A flag isn't a route, nor a route with another id.
+  assert.equal((await put(flag)).status, 400);
+  assert.equal((await put(route, 'r2')).status, 400);
+  assert.equal((await put({ ...route, name: 'x'.repeat(3_000_001) })).status, 400);
+
+  assert.equal(
+    (await fetch(`${base}/api/routes/r1`, { method: 'DELETE', headers: { Cookie: cookie } }))
+      .status,
+    204,
+  );
+  assert.deepEqual(await list(), []);
+});
+
 test('anything else is a 404', async () => {
   assert.equal((await fetch(`${base}/api/users`)).status, 404);
+  const anna = cookieOf(await logIn({ username: 'anna', password }));
+  for (const [method, path] of [
+    ['GET', '/api/workouts'],
+    ['GET', '/api/flags/f1'],
+    ['POST', '/api/flags'],
+    ['PUT', '/api/flags'],
+  ] as const)
+    assert.equal(
+      (await fetch(`${base}${path}`, { method, headers: { Cookie: anna } })).status,
+      404,
+      `${method} ${path}`,
+    );
   assert.equal((await fetch(`${base}/api/me`, { method: 'POST' })).status, 404);
 });

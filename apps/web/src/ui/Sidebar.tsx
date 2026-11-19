@@ -7,6 +7,7 @@ import { ProfilePanel } from './ProfilePanel';
 import { RiderPanel } from './RiderPanel';
 import { RouteEnds } from './RouteEnds';
 import { RouteSummary } from './RouteSummary';
+import { SavedRouteList } from './SavedRoutes';
 import { OpenTrackButton, TrackPanel } from './TrackPanel';
 import { WorkoutPanel } from './WorkoutPanel';
 
@@ -120,6 +121,7 @@ export function Sidebar() {
           <FlagPanel route={waypoints.length >= 2 ? route : undefined} />
         </>
       )}
+      <SavedRouteList />
       <AccountLine />
     </aside>
   );

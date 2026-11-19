@@ -720,3 +720,54 @@ describe('clearing the map', () => {
     expect(state().past).toEqual([]);
   });
 });
+
+describe('saved routes', () => {
+  const LINE = east(0, 1000, 100).map(([lon = 0, lat = 0]) => [lon, lat, 200]);
+
+  it('saves a line with its length and where its elevation came from', () => {
+    state().saveRoute('Lobau', LINE, 'file');
+    const [saved] = state().savedRoutes;
+    expect(saved).toMatchObject({
+      name: 'Lobau',
+      geometry: { type: 'LineString', coordinates: LINE },
+      elevation: 'file',
+    });
+    expect(saved?.distanceM).toBeCloseTo(1000, -1);
+    expect(Date.parse(saved?.createdAt ?? '')).not.toBeNaN();
+    state().saveRoute('Lobau again', LINE, 'none');
+    expect(state().savedRoutes.map((r) => r.name)).toEqual(['Lobau', 'Lobau again']);
+  });
+
+  it('opens a saved route as a track, in place of loops, and leaves it saved', () => {
+    state().loadFlags([flagOn('on-it', east(200, 300, 50))]);
+    state().saveRoute('Lobau', LINE, 'looked_up');
+    const id = state().savedRoutes[0]!.id;
+    state().addWaypoint([16.37, 48.2]);
+    state().setWorkout(durationWorkout('1 h ride', 3600));
+    state().searchLoops();
+    expect(state().loops).toBeDefined();
+    state().openSavedRoute(id);
+    expect(state().track).toMatchObject({
+      name: 'Lobau',
+      coordinates: LINE,
+      elevation: 'looked_up',
+    });
+    expect(state().track?.sections).toHaveLength(1);
+    expect(state().loops).toBeUndefined();
+    expect(state().savedRoutes).toHaveLength(1);
+    state().openSavedRoute('unknown');
+    expect(state().track?.name).toBe('Lobau');
+  });
+
+  it('loads saved routes ahead of ones saved before loading, and deletes one', () => {
+    state().saveRoute('Early', LINE, 'none');
+    const early = state().savedRoutes[0]!;
+    state().loadSavedRoutes([{ ...early, id: 'stored', name: 'Stored' }]);
+    expect(state().savedRoutes.map((r) => r.name)).toEqual(['Stored', 'Early']);
+    // Loaded again (it's been saved since): not twice.
+    state().loadSavedRoutes([{ ...early, id: 'stored', name: 'Stored' }, early]);
+    expect(state().savedRoutes.map((r) => r.name)).toEqual(['Stored', 'Early']);
+    state().deleteSavedRoute('stored');
+    expect(state().savedRoutes.map((r) => r.name)).toEqual(['Early']);
+  });
+});

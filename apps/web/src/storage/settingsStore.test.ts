@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { openDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DB_NAME, openPlannerDb } from './db';
-import { createFlagStore } from './flagStore';
+import { createBrowserStore } from './listStore';
 import { createSettingsStore } from './settingsStore';
 
 describe('settings store', () => {
@@ -44,7 +44,7 @@ describe('settings store', () => {
     v1.close();
 
     const db = await openPlannerDb();
-    expect((await createFlagStore(db).list()).map((f) => f.id)).toEqual(['old']);
+    expect((await createBrowserStore(db, 'flags').list()).map((f) => f.id)).toEqual(['old']);
     await createSettingsStore(db).save({ ftpW: 240 });
     expect(await createSettingsStore(db).load()).toEqual({ ftpW: 240 });
     db.close();
