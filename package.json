@@ -22,7 +22,10 @@
     "routing:image": "docker build -t bike-route-planner-routing services/routing",
     "web:image": "docker build -f apps/web/Dockerfile -t bike-route-planner-web .",
     "containers:up": "docker compose up --build",
-    "user:add": "docker compose run --rm api node src/cli.ts add"
+    "user:add": "docker compose run --rm api node src/cli.ts add",
+    "fly:web": "fly deploy . --config apps/web/fly.toml --dockerfile apps/web/Dockerfile --ignorefile apps/web/Dockerfile.dockerignore --ha=false",
+    "fly:api": "fly deploy services/api --config services/api/fly.toml --ha=false",
+    "fly:routing": "fly deploy services/routing --config services/routing/fly.toml --ha=false"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

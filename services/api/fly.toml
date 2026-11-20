@@ -1,0 +1,20 @@
+# The API on Fly.io (docs/deploy.md): private, reached only by the web app at its Flycast address. Deploy with
+# pnpm fly:api. One machine: the SQLite file is on its volume.
+app = 'bike-route-planner-api'
+primary_region = 'fra'
+
+[mounts]
+  source = 'api_data'
+  destination = '/srv/api/data'
+
+[http_service]
+  internal_port = 3000
+  # Flycast is plain HTTP; TLS ends at the web app.
+  force_https = false
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'

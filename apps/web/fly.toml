@@ -1,0 +1,19 @@
+# The web app on Fly.io (docs/deploy.md): the only one of the three apps with a public address. Deploy with
+# pnpm fly:web. It reaches the API and the engine at their private Flycast addresses, which wake them when stopped.
+app = 'bike-route-planner-web'
+primary_region = 'fra'
+
+[env]
+  API_URL = 'http://bike-route-planner-api.flycast'
+  GH_URL = 'http://bike-route-planner-routing.flycast'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'
