@@ -17,12 +17,21 @@ Needs `flyctl` (`brew install flyctl`) and `fly auth login`.
 
 - **Deploy a change:** `pnpm fly:web`, `pnpm fly:api` or `pnpm fly:routing`. Fly builds the image from the same
   Dockerfile as locally.
-- **Add an account, or give one a new password:** open the app (which wakes the API), then run
-  `fly ssh console -a bike-route-planner-api -C "node src/cli.ts add <name>"`. It prints the password once.
+- **Add an account, or give one a new password:** wake the API (opening the app doesn't: without a login the web app
+  answers for it), then add the account. It prints the password once.
+
+  ```sh
+  fly machine start -a bike-route-planner-api $(fly machine list -a bike-route-planner-api -q)
+  fly ssh console -a bike-route-planner-api -C "node src/cli.ts add <name>"
+  ```
+
 - **New OSM data or encoded values:** build the graph here (`pnpm routing:start`, ADR 0013), stop the local engine,
-  then `services/routing/scripts/fly-graph.sh` (about 15 minutes; the app can't route meanwhile). It removes the engine's machine, copies the graph
-  to its volume from a temporary machine, and deploys the engine again.
+  then `services/routing/scripts/fly-graph.sh` (about 15 minutes; the app can't route meanwhile). It removes the
+  engine's machine, copies the graph to its volume from a temporary machine, and deploys the engine again.
 - **Logs:** `fly logs -a <app>`.
+- **Testing the live app:** add an account for the tests (above), then run the e2e suites with `E2E_BASE_URL`,
+  `E2E_USER` and `E2E_PASSWORD`. `pnpm e2e:live` also talks to the engine directly: start its machine, open
+  `fly proxy 18989:8989 -a bike-route-planner-routing` and set `GH_URL=http://localhost:18989`.
 
 ## Setting it up from nothing
 

@@ -514,7 +514,13 @@ flagging feature, which needs it.
     flake below; API and app rules mutation-checked
   - Seen while testing: `location.spec` ("flies to where the user is now", "opens the map on the user") fails about
     1 run in 10 against the web container, at HEAD too; CI's retry hides it
-- [ ] Deploy to Fly.io
+- [x] Deploy to Fly.io
+  - Live at https://bike-route-planner-web.fly.dev (ADR 0018, runbook docs/deploy.md): three Fly.io apps in
+    Frankfurt, only the web app public, the API and engine woken through Flycast. All suspend when idle: the first
+    route through the login with all three suspended takes 2.1–2.4 s (16.7 s if the engine had stopped instead).
+    The graph is copied up compressed by `fly-graph.sh` (15 min, md5-checked). Without a session cookie the web
+    app answers `/gh`, `/geo` and `/api` itself, so bots don't wake the API; `robots.txt` disallows all. Against
+    the live app: e2e 46 passed apart from the `location.spec` flake, `e2e:live` 24 passed
 
 ### M5: Station-to-station discovery
 

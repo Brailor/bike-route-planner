@@ -28,8 +28,11 @@ route takes on a ride.
   | suspended                 | 1.0 s       | 0.10 s      |
   | stopped                   | 16.7 s      | 0.17–0.27 s |
 
+  As on a ride, from a laptop through the login, with all three apps suspended: the first route took 2.1–2.4 s
+  and the next 0.3–0.4 s (the network and the 202 km answer included). The first route after a deploy took 9.9 s.
+
   Fly keeps a suspended machine's memory only until the next deploy, a move to another host or maintenance; then
-  the first route takes the stopped time once. Suspend needs machines of at most 2 GB, which all three are.
+  the first route takes 10–17 s once. Suspend needs machines of at most 2 GB, which all three are.
 
 - **Volumes:** `api_data` (1 GB) holds the SQLite file, `graph` (3 GB) the 2.1 GB graph. Both start owned by root
   and the images run as uid 1000, so a temporary machine sets the owner once. Fly snapshots each volume daily and
