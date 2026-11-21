@@ -40,6 +40,7 @@ This README describes what the app is for and how to run it. The milestones belo
 
 Online, the same pieces run in containers (docs/containers.md): a web container (Caddy) serves the built app and
 passes /gh, /geo and /api on, after a login, to the routing container, Photon and services/api (logins; SQLite).
+They run on Fly.io at https://bike-route-planner-web.fly.dev and suspend when idle (docs/deploy.md, ADR 0018).
 
 Later:
 - services/transit  MOTIS (self-hosted) or Transitous public API for public transport
@@ -129,6 +130,9 @@ pnpm user:add anna   # creates the account, running or not, and prints its passw
 ```
 
 Accounts are kept in a Docker volume (`docker compose down -v` deletes them). `pnpm dev` has no accounts and no login.
+
+Online, the same containers run on Fly.io: deploy with `pnpm fly:web`, `pnpm fly:api` or `pnpm fly:routing`, and
+copy a new graph with `services/routing/scripts/fly-graph.sh`. Setup, accounts and the rest: [docs/deploy.md](docs/deploy.md).
 
 `pnpm routing:setup --update` refreshes the OSM extracts (and drops the graph cache so the next start re-imports). Regions are listed in `REGIONS` in `services/routing/scripts/setup.sh`.
 Sample requests are in `services/routing/routing.http`.

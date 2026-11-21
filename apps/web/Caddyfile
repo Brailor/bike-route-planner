@@ -9,13 +9,21 @@
 # Routing and address search only for a logged-in user (ADR 0015): the API answers /api/me, and its 401 goes back to
 # the browser. Otherwise anyone who finds the address could use the engine and Photon at the owner's cost.
 (logged_in) {
-	forward_auth {$API_URL:http://api:3000} {
-		uri /api/me
+	# In order: without a session cookie the request is refused here, without asking the API.
+	route {
+		respond @no_session "Log in first" 401
+		forward_auth {$API_URL:http://api:3000} {
+			uri /api/me
+		}
 	}
 }
 
 :8080 {
 	encode zstd gzip
+
+	# A request without a session cookie can't be logged in, so it's answered here and never wakes the API machine
+	# on Fly.io (ADR 0018): bots and visitors who aren't logged in cost nothing beyond this container.
+	@no_session not header Cookie *session=*
 
 	# Only the engine calls the app makes (GraphHopperEngine); every other engine path stays private.
 	@engine path /gh/route /gh/match
@@ -39,6 +47,11 @@
 	}
 
 	handle /api/* {
+		@anonymous_api {
+			not path /api/login
+			not header Cookie *session=*
+		}
+		respond @anonymous_api "Log in first" 401
 		reverse_proxy {$API_URL:http://api:3000}
 	}
 

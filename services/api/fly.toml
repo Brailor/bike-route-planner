@@ -11,7 +11,7 @@ primary_region = 'fra'
   internal_port = 3000
   # Flycast is plain HTTP; TLS ends at the web app.
   force_https = false
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
   min_machines_running = 0
 

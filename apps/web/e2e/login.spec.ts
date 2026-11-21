@@ -21,6 +21,16 @@ test('routing, address search and the API refuse a request without a login', asy
     await anonymous.get('/api/me'),
   ])
     expect(res.status(), res.url()).toBe(401);
+  // Without a session cookie the web container answers itself, so the API (on Fly.io, a machine to wake) isn't
+  // asked; with one, even a made-up one, the API checks it.
+  expect(await (await anonymous.get('/api/me')).text()).toBe('Log in first');
+  expect(await (await anonymous.get('/geo/api?q=Graz')).text()).toBe('Log in first');
+  const madeUp = { headers: { cookie: 'theme=dark; session=made-up' } };
+  for (const res of [
+    await anonymous.get('/api/me', madeUp),
+    await anonymous.get('/geo/api?q=Graz', madeUp),
+  ])
+    expect(await res.json(), res.url()).toEqual({ error: 'Not logged in' });
   expect(
     (await anonymous.post('/api/login', { data: { username: user, password: 'wrong' } })).status(),
   ).toBe(401);

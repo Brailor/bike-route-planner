@@ -1,6 +1,6 @@
 # Containers, accounts and hosting
 
-Plan agreed with the user on 2026-11-17. In progress; progress is ticked in [plan.md](plan.md#containers-and-accounts-added-on-request).
+Plan agreed with the user on 2026-11-17. Done 2026-11-20, running as docs/deploy.md describes; progress is ticked in [plan.md](plan.md#containers-and-accounts-added-on-request).
 
 ## Why
 

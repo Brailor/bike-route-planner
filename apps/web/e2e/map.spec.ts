@@ -16,3 +16,8 @@ test('the map renders OpenFreeMap tiles with OSM attribution', async ({ page }) 
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap');
   expect(errors).toEqual([]);
 });
+
+test('robots.txt asks crawlers to stay away', async ({ request }) => {
+  // The app isn't meant to be found; polite crawlers and AI agents then don't load it (ADR 0018).
+  expect(await (await request.get('/robots.txt')).text()).toBe('User-agent: *\nDisallow: /\n');
+});
