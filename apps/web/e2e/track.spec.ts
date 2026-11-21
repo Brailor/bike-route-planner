@@ -262,3 +262,39 @@ test('an opened track shows its surfaces, through a reroute', async ({ page }) =
   await expect(surfaces.getByTestId('surface-gravel')).toBeVisible();
   expect(matched).toHaveLength(1);
 });
+
+test('flag a stretch of an opened track and reroute around it', async ({ page }) => {
+  const requests = await stubRouting(page, aroundTo);
+  await openMap(page);
+  await openTrack(page);
+  await expect(
+    page.getByText('This track doesn’t run along any of your flagged sections.'),
+  ).toBeVisible();
+
+  // The handles sit on the track; dragging one along it to the east makes the stretch longer.
+  await page.getByRole('button', { name: 'Flag a section' }).click();
+  await expect(page.getByTestId('flag-handle')).toHaveCount(2);
+  const before = await page.getByTestId('flag-length').textContent();
+  const box = (await page.getByTestId('flag-handle').last().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 30, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.getByTestId('flag-length')).not.toHaveText(before ?? '');
+  await page.getByRole('combobox', { name: 'Reason (optional)' }).selectOption('Bad surface');
+  await page.getByRole('button', { name: 'Save flag' }).click();
+
+  // The new flag is asked about like any other, and kept for later routes.
+  await expect(page.getByTestId('flag-handle')).toHaveCount(0);
+  await expect(question(page)).toContainText('Section 1 of 1 (Bad surface)');
+  expect(requests).toHaveLength(0);
+  await question(page).getByRole('button', { name: 'Reroute around it' }).click();
+  await expect(page.getByTestId('track-section').first()).toContainText('Rerouted, +400 m');
+  // Routed between two points on the track, either side of the stretch, around the new flag.
+  for (const r of requests) {
+    for (const [, lat] of r.points) expect(lat).toBeCloseTo(START[1], 6);
+    expect(JSON.stringify(r.custom_model)).toContain('in_flag_0');
+  }
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByTestId('flag-count')).toHaveText('1 flagged section');
+});

@@ -9,6 +9,7 @@ import { surfaceBreakdown } from '../route/surface';
 import { cumulativeM } from '../track/sections';
 import type { AvoidFlag } from '../types';
 import { ElevationChart } from './ElevationChart';
+import { SelectionForm } from './FlagPanel';
 import { SaveRouteButton } from './SavedRoutes';
 import { formatDistance } from './format';
 import { SurfaceBar } from './SurfaceBar';
@@ -89,12 +90,15 @@ export function OpenTrackButton({ onError }: { onError: (message: string | undef
 }
 
 /**
- * An opened GPX track, in place of the route while open. The track stays as it is; the only thing on offer is
- * rerouting around the flagged sections it runs along, asked one by one, or all at once.
+ * An opened GPX track, in place of the route while open. The track stays as it is, apart from rerouting around the
+ * flagged sections it runs along, asked one by one, or all at once. Once they're answered, a stretch of it can be
+ * flagged too, and is asked about next.
  */
 export function TrackPanel({ track }: { track: ImportedTrack }) {
   const flags = usePlanner((s) => s.flags);
-  const { closeTrack, keepSection, rerouteSections, showOnMap } = usePlanner.getState();
+  const selection = usePlanner((s) => s.flagSelection);
+  const { closeTrack, keepSection, rerouteSections, showOnMap, startFlagSelection } =
+    usePlanner.getState();
   const lengthM = useMemo(() => cumulativeM(track.coordinates).at(-1) ?? 0, [track.coordinates]);
   const { coordinates, roads, roadsError } = track;
   const breakdown = useMemo(
@@ -105,7 +109,7 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
   );
   const { sections, current, rerouting } = track;
   const asked = sections[current];
-  const remaining = sections.length - current;
+  const remaining = sections.filter((section) => !section.outcome).length;
 
   return (
     <section className="panel-section track" aria-label="Opened track">
@@ -210,6 +214,20 @@ export function TrackPanel({ track }: { track: ImportedTrack }) {
             <p className="hint">Every section answered.</p>
           )}
         </>
+      )}
+      {selection ? (
+        <SelectionForm
+          coordinates={track.coordinates}
+          selection={selection}
+          along="track"
+          confirmLabel="Save flag"
+        />
+      ) : (
+        !asked && (
+          <button type="button" className="button" onClick={startFlagSelection}>
+            Flag a section
+          </button>
+        )
       )}
       <ElevationChart coordinates={track.coordinates} />
       {track.elevation === 'looked_up' && (

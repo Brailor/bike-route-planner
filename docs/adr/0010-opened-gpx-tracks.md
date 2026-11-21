@@ -45,4 +45,5 @@ road.
 - Each section costs up to 4 engine requests; "all" runs the sections one after another, since each way around
   changes the track the next one is spliced into.
 - The joins are within 15 m of the track, so a recorded track can get a short jog where the way around starts.
-- An opened track can't be flagged or edited; to change more than the flagged sections, plan a route instead.
+- An opened track can't be edited; to change more than the flagged sections, plan a route instead. A stretch of it
+  can be flagged since 2026-11-21 (ADR 0019).

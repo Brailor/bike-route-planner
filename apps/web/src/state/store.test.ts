@@ -700,6 +700,90 @@ describe('opened tracks', () => {
     state().setSectionResult(track.id, 0, { outcome: 'rerouted', splice, detour });
     expect(state().track).toMatchObject({ roads: undefined, roadsError: undefined });
   });
+
+  describe('flagging a stretch of it', () => {
+    /** Both sections answered: the first kept, the second too. */
+    function answered() {
+      const track = open();
+      state().keepSection();
+      state().keepSection();
+      return track;
+    }
+    /** The track's points every 10 m: handles at `fromM` and `toM`. */
+    function select(fromM: number, toM: number) {
+      state().startFlagSelection();
+      state().moveFlagHandle('a', fromM / 10);
+      state().moveFlagHandle('b', toM / 10);
+    }
+
+    it('is offered only once every section is answered, and not during a reroute', () => {
+      open();
+      state().startFlagSelection();
+      expect(state().flagSelection).toBeUndefined();
+      state().keepSection();
+      state().rerouteSections(false);
+      state().startFlagSelection();
+      expect(state().flagSelection).toBeUndefined();
+      state().keepSection(); // not while rerouting
+      state().setSectionResult(state().track?.id ?? '', 1, { outcome: 'no_way_around' });
+      state().startFlagSelection();
+      expect(state().flagSelection).toBeDefined();
+    });
+
+    it('is picked on the track, not the route, and asked about next, in track order', () => {
+      state().setRoute(fixtureRoute);
+      answered();
+      select(450, 550);
+      state().confirmFlag({ reason: 'overgrown' });
+
+      const flag = state().flags.at(-1);
+      expect(flag).toMatchObject({
+        reason: 'overgrown',
+        geometry: { coordinates: east(450, 550) },
+      });
+      // Not matched to the roads yet: no ways, so it's avoided by its line (ADR 0007).
+      expect(flag?.osmWayIds).toBeUndefined();
+      expect(state().flagSelection).toBeUndefined();
+      const track = state().track;
+      expect(track?.sections.map((s) => s.flagIds)).toEqual([['first'], [flag?.id], ['second']]);
+      expect(track).toMatchObject({ current: 1, rerouting: undefined });
+      // The new question comes into view.
+      const asked = track?.sections[1];
+      const shown = state().mapFocus?.points ?? [];
+      expect(shown[0]?.[0]).toBeCloseTo(TRACK[asked?.from ?? -1]?.[0] ?? 0, 6);
+      expect(shown[1]?.[0]).toBeCloseTo(TRACK[asked?.to ?? -1]?.[0] ?? 0, 6);
+    });
+
+    it('asks nothing more once it’s answered: the sections after it were answered before', () => {
+      answered();
+      select(450, 550);
+      state().confirmFlag({});
+      state().keepSection();
+      expect(state().track?.current).toBe(3);
+
+      select(30, 120);
+      state().confirmFlag({});
+      expect(state().track?.current).toBe(0);
+      state().rerouteSections(false);
+      state().setSectionResult(state().track?.id ?? '', 0, { outcome: 'no_way_around' });
+      expect(state().track).toMatchObject({ current: 4, rerouting: undefined });
+    });
+
+    it('takes its ways from the roads the track is matched to', () => {
+      const track = answered();
+      state().setTrackRoads(track.id, track.coordinates, { roads: asphalt(track.coordinates) });
+      select(450, 550);
+      state().confirmFlag({});
+      expect(state().flags.at(-1)?.osmWayIds).toEqual([1]);
+    });
+
+    it('ends when the track is closed', () => {
+      answered();
+      select(450, 550);
+      state().closeTrack();
+      expect(state().flagSelection).toBeUndefined();
+    });
+  });
 });
 
 describe('clearing the map', () => {

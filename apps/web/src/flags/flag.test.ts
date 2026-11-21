@@ -36,6 +36,12 @@ describe('selectionWayIds', () => {
     expect(selectionWayIds(route, { a: 2, b: 4 })).toEqual([]);
     expect(selectionWayIds(route, { a: 3, b: 5 })).toEqual([11]);
   });
+
+  it('has none on a track not yet matched to the roads', () => {
+    expect(
+      selectionWayIds({ geometry: route.geometry, attributes: undefined }, { a: 1, b: 5 }),
+    ).toEqual([]);
+  });
 });
 
 describe('flagFromSelection', () => {

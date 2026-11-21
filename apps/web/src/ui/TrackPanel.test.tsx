@@ -159,6 +159,50 @@ describe('opening a GPX track', () => {
 });
 
 /** A 2×2 terrarium tile 300 m up everywhere. */
+describe('flagging a stretch of an opened track', () => {
+  const flagButton = () => screen.queryByRole('button', { name: 'Flag a section' });
+
+  it('is offered once every section is answered, and asks about the new flag next', async () => {
+    const user = await openTrack();
+    expect(flagButton()).toBeNull();
+    await user.click(within(question()).getByRole('button', { name: 'Keep it' }));
+    await user.click(within(question()).getByRole('button', { name: 'Keep it' }));
+
+    await user.click(flagButton()!);
+    expect(
+      screen.getByText('Drag the two handles along the track to mark the unrideable stretch.'),
+    ).toBeInTheDocument();
+    // Handles at 450 and 550 m, between the two flagged sections (a point every 10 m).
+    act(() => {
+      state().moveFlagHandle('a', 45);
+      state().moveFlagHandle('b', 55);
+    });
+    expect(screen.getByTestId('flag-length')).toHaveTextContent('100 m');
+    await user.selectOptions(screen.getByLabelText('Reason (optional)'), 'bad_surface');
+    await user.click(screen.getByRole('button', { name: 'Save flag' }));
+
+    expect(question()).toHaveTextContent(
+      'Section 2 of 3 (Bad surface): reroute around it, or keep it?',
+    );
+    // The others are answered: only this one is left, so there's no "all".
+    expect(within(question()).queryByRole('button', { name: /Reroute all/ })).toBeNull();
+    expect(flagButton()).toBeNull();
+    await user.click(within(question()).getByRole('button', { name: 'Keep it' }));
+    expect(screen.getByText('Every section answered.')).toBeInTheDocument();
+  });
+
+  it('is offered right away on a track along no flag, and can be cancelled', async () => {
+    const user = await openTrack(east(0, 1000, 10, 200));
+    await user.click(flagButton()!);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(state().flagSelection).toBeUndefined();
+    await user.click(flagButton()!);
+    await user.keyboard('{Escape}');
+    expect(state().flagSelection).toBeUndefined();
+    expect(flagButton()).toBeInTheDocument();
+  });
+});
+
 const FLAT_300: DemTile = {
   width: 2,
   height: 2,

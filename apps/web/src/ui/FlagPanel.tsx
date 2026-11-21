@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { usesFlag } from '../flags/avoid';
-import type { FlagReason } from '../flags/flag';
-import { selectionLengthM } from '../flags/selection';
+import type { FlagDetails, FlagReason } from '../flags/flag';
+import { selectionLengthM, type FlagSelection } from '../flags/selection';
 import type { RouteResult } from '../routing/types';
 import { usePlanner, type FlagDraft } from '../state/store';
 import { FlagDetailsFields } from './FlagDetailsFields';
@@ -34,101 +34,120 @@ function DraftStatus({ draft }: { draft: FlagDraft }) {
   return null;
 }
 
+/** A stretch being marked: what's wrong with it, then save or cancel (Esc cancels too). */
+function FlagForm({
+  status,
+  confirmLabel,
+  canSave,
+  onSave,
+  onCancel,
+}: {
+  status: ReactNode;
+  confirmLabel: string;
+  canSave: boolean;
+  onSave: (details: FlagDetails) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState<FlagReason | ''>('');
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+  return (
+    <section className="panel-section flag-panel" aria-label="Flags">
+      {status}
+      <FlagDetailsFields reason={reason} note={note} onReason={setReason} onNote={setNote} />
+      <div className="flag-panel__actions">
+        <button
+          type="button"
+          className="button button--primary"
+          onClick={() => onSave({ ...(reason && { reason }), note })}
+          disabled={!canSave}
+        >
+          {confirmLabel}
+        </button>
+        <button type="button" className="button" onClick={onCancel} title="Cancel (Esc)">
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** The stretch between the two handles on `coordinates` (a route's, or an opened track's), to flag. */
+export function SelectionForm({
+  coordinates,
+  selection,
+  along,
+  confirmLabel,
+}: {
+  coordinates: readonly (readonly number[])[];
+  selection: FlagSelection;
+  along: 'route' | 'track';
+  confirmLabel: string;
+}) {
+  const { confirmFlag, cancelFlagSelection } = usePlanner.getState();
+  const lengthM = selectionLengthM(coordinates, selection);
+  return (
+    <FlagForm
+      status={
+        <>
+          <p className="status">
+            Drag the two handles along the {along} to mark the unrideable stretch.
+          </p>
+          <p>
+            Selected: <strong data-testid="flag-length">{formatDistance(lengthM)}</strong>
+          </p>
+        </>
+      }
+      confirmLabel={confirmLabel}
+      canSave={lengthM > 0}
+      onSave={confirmFlag}
+      onCancel={cancelFlagSelection}
+    />
+  );
+}
+
 /** Flagging a stretch, on `route` (when there is one) or marked on the map, and the flags made so far. */
 export function FlagPanel({ route }: { route: RouteResult | undefined }) {
   const selection = usePlanner((s) => s.flagSelection);
   const draft = usePlanner((s) => s.flagDraft);
   const flags = usePlanner((s) => s.flags);
-  const {
-    startFlagSelection,
-    cancelFlagSelection,
-    confirmFlag,
-    startFlagDraft,
-    cancelFlagDraft,
-    confirmDraft,
-  } = usePlanner.getState();
-  const [reason, setReason] = useState<FlagReason | ''>('');
-  const [note, setNote] = useState('');
+  const { startFlagSelection, startFlagDraft, cancelFlagDraft, confirmDraft } =
+    usePlanner.getState();
   const onFlag = useMemo(() => (route ? usesFlag(route, flags) : false), [route, flags]);
-
-  const marking = Boolean(draft || selection);
-  useEffect(() => {
-    if (!marking) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      cancelFlagSelection();
-      cancelFlagDraft();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [marking, cancelFlagSelection, cancelFlagDraft]);
-
-  function save(confirm: typeof confirmFlag) {
-    confirm({ ...(reason && { reason }), note });
-    setReason('');
-    setNote('');
-  }
-
-  const details = (
-    <FlagDetailsFields reason={reason} note={note} onReason={setReason} onNote={setNote} />
-  );
   // Without a route there's nothing to reroute yet: the flag applies from the next route on.
   const confirmLabel = route ? 'Flag & reroute' : 'Save flag';
 
   if (draft)
     return (
-      <section className="panel-section flag-panel" aria-label="Flags">
-        <p className="status">{draftHint(draft.points.length)}</p>
-        <DraftStatus draft={draft} />
-        {details}
-        <div className="flag-panel__actions">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={() => save(confirmDraft)}
-            disabled={!draft.trace}
-          >
-            {confirmLabel}
-          </button>
-          <button type="button" className="button" onClick={cancelFlagDraft} title="Cancel (Esc)">
-            Cancel
-          </button>
-        </div>
-      </section>
+      <FlagForm
+        status={
+          <>
+            <p className="status">{draftHint(draft.points.length)}</p>
+            <DraftStatus draft={draft} />
+          </>
+        }
+        confirmLabel={confirmLabel}
+        canSave={Boolean(draft.trace)}
+        onSave={confirmDraft}
+        onCancel={cancelFlagDraft}
+      />
     );
 
-  if (selection && route) {
-    const lengthM = selectionLengthM(route.geometry.coordinates, selection);
+  if (selection && route)
     return (
-      <section className="panel-section flag-panel" aria-label="Flags">
-        <p className="status">
-          Drag the two handles along the route to mark the unrideable stretch.
-        </p>
-        <p>
-          Selected: <strong data-testid="flag-length">{formatDistance(lengthM)}</strong>
-        </p>
-        {details}
-        <div className="flag-panel__actions">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={() => save(confirmFlag)}
-            disabled={lengthM === 0}
-          >
-            {confirmLabel}
-          </button>
-          <button
-            type="button"
-            className="button"
-            onClick={cancelFlagSelection}
-            title="Cancel (Esc)"
-          >
-            Cancel
-          </button>
-        </div>
-      </section>
+      <SelectionForm
+        coordinates={route.geometry.coordinates}
+        selection={selection}
+        along="route"
+        confirmLabel={confirmLabel}
+      />
     );
-  }
 
   return (
     <section className="panel-section flag-panel" aria-label="Flags">

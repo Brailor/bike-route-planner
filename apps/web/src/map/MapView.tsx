@@ -264,6 +264,8 @@ export function MapView() {
   // The stretch about to be flagged (picked on the route, or traced through the points clicked on the map), or the
   // flagged section of an opened track being asked about.
   const asked = track?.sections[track.current];
+  /** The line a flag is being picked on: the opened track, else the route. */
+  const flagLine = track?.coordinates ?? coordinates;
   const selected = useMemo<FeatureCollection>(() => {
     const geometry: LineString | undefined = asked
       ? {
@@ -272,13 +274,13 @@ export function MapView() {
         }
       : flagDraft?.trace
         ? flagDraft.trace.geometry
-        : coordinates && flagSelection
-          ? selectionGeometry(coordinates, flagSelection)
+        : flagLine && flagSelection
+          ? selectionGeometry(flagLine, flagSelection)
           : undefined;
     return geometry
       ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] }
       : EMPTY;
-  }, [coordinates, flagSelection, flagDraft, asked, track?.coordinates]);
+  }, [flagLine, flagSelection, flagDraft, asked, track?.coordinates]);
 
   const [lineDrag, setLineDrag] = useState<{ from: LonLat; routeIndex: number; to: LonLat }>();
   const [overRoute, setOverRoute] = useState(false);
@@ -403,11 +405,11 @@ export function MapView() {
   }
 
   /**
-   * Moves a flag handle to the route point nearest the pointer. Every move stores a new selection, so the map
+   * Moves a flag handle to the point of the line nearest the pointer. Every move stores a new selection, so the map
    * re-renders and the handle's marker snaps back from the pointer onto that point, even when the index is unchanged.
    */
   function dragFlagHandle(handle: FlagHandle, e: MarkerDragEvent) {
-    if (coordinates) moveFlagHandle(handle, nearestIndex(coordinates, toLonLat(e)));
+    if (flagLine) moveFlagHandle(handle, nearestIndex(flagLine, toLonLat(e)));
   }
 
   function handleMouseUp() {
@@ -692,7 +694,7 @@ export function MapView() {
 
       {flagSelection &&
         FLAG_HANDLES.map((handle) => {
-          const [lon = 0, lat = 0] = coordinates?.[flagSelection[handle]] ?? [];
+          const [lon = 0, lat = 0] = flagLine?.[flagSelection[handle]] ?? [];
           return (
             <Marker
               key={handle}
@@ -705,7 +707,7 @@ export function MapView() {
               <div
                 className="flag-handle"
                 data-testid="flag-handle"
-                title="Drag along the route to adjust"
+                title="Drag along the line to adjust"
               />
             </Marker>
           );

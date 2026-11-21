@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { flagFromSelection, withDetails, type FlagDetails } from '../flags/flag';
+import { flagFromSelection, withDetails, type FlagDetails, type FlagLine } from '../flags/flag';
 import { initialSelection, type FlagHandle, type FlagSelection } from '../flags/selection';
 import type { Place } from '../geocoding/types';
 import type { LoopCandidate } from '../loops/candidates';
@@ -166,7 +166,10 @@ interface PlannerState {
   setProfile: (profile: Profile) => void;
   updateSettings: (patch: Partial<Omit<ProfileSettings, 'profile'>>) => void;
   setHoverIndex: (index: number | undefined) => void;
-  /** Puts two handles on the current route. No-op without a route. */
+  /**
+   * Puts two handles on the opened track (once its questions are answered) or else the current route. No-op
+   * without either.
+   */
   startFlagSelection: () => void;
   moveFlagHandle: (handle: FlagHandle, index: number) => void;
   cancelFlagSelection: () => void;
@@ -181,7 +184,7 @@ interface PlannerState {
   setDraftError: (points: LonLat[], message: string) => void;
   /** Turns the traced stretch into a flag and ends the draft. */
   confirmDraft: (details: FlagDetails) => void;
-  /** Turns the selected stretch into a flag and ends the selection. */
+  /** Turns the selected stretch into a flag and ends the selection; on a track, asks about it next. */
   confirmFlag: (details: FlagDetails) => void;
   /** Adds flags read from storage, keeping any made before they arrived. */
   loadFlags: (saved: AvoidFlag[]) => void;
@@ -255,6 +258,26 @@ function trackFocus(track: ImportedTrack): { points: LonLat[] } {
   const section = track.sections[track.current];
   const shown = section ? track.coordinates.slice(section.from, section.to + 1) : track.coordinates;
   return { points: corners(shown) };
+}
+
+/** The next section after `index` not answered yet; `sections.length` when there's none. */
+function nextOpen(sections: readonly TrackSection[], index: number): number {
+  const next = sections.findIndex((section, i) => i > index && !section.outcome);
+  return next === -1 ? sections.length : next;
+}
+
+/**
+ * Where a flag can be picked: on the opened track once its questions are answered (a new flag becomes the next
+ * one), otherwise on the route.
+ */
+function flagLine(s: Pick<PlannerState, 'route' | 'track'>): FlagLine | undefined {
+  const { track } = s;
+  if (!track) return s.route;
+  if (track.rerouting || track.current < track.sections.length) return undefined;
+  return {
+    geometry: { type: 'LineString', coordinates: track.coordinates },
+    attributes: track.roads,
+  };
 }
 
 const trackLengthM = (coordinates: readonly (readonly number[])[]) =>
@@ -363,11 +386,12 @@ export const usePlanner = create<PlannerState>()((set, get) => {
       })),
     setHoverIndex: (hoverIndex) => set({ hoverIndex }),
     startFlagSelection: () =>
-      set((s) =>
-        s.route
-          ? { flagSelection: initialSelection(s.route.geometry.coordinates), flagDraft: undefined }
-          : s,
-      ),
+      set((s) => {
+        const line = flagLine(s);
+        return line
+          ? { flagSelection: initialSelection(line.geometry.coordinates), flagDraft: undefined }
+          : s;
+      }),
     // Always a new object, even for the same index: MapView relies on the re-render to snap a dragged handle.
     moveFlagHandle: (handle, index) =>
       set((s) =>
@@ -411,15 +435,32 @@ export const usePlanner = create<PlannerState>()((set, get) => {
       }),
     confirmFlag: (details) =>
       set((s) => {
-        if (!s.route || !s.flagSelection) return s;
+        const line = flagLine(s);
+        if (!line || !s.flagSelection) return s;
         const flag = flagFromSelection(
-          s.route,
+          line,
           s.flagSelection,
           details,
           crypto.randomUUID(),
           new Date(),
         );
-        return { flags: [...s.flags, flag], flagSelection: undefined };
+        const { track } = s;
+        if (!track) return { flags: [...s.flags, flag], flagSelection: undefined };
+        // On a track the new flag's sections are asked about next, in track order among the answered ones. (A
+        // stretch picked on the track always runs along its flag, even 10 m of it.)
+        const added = flaggedSections(track.coordinates, [flag]);
+        const sections = [...track.sections, ...added].sort((x, y) => x.from - y.from);
+        const next: ImportedTrack = {
+          ...track,
+          sections,
+          current: added[0] ? sections.indexOf(added[0]) : sections.length,
+        };
+        return {
+          flags: [...s.flags, flag],
+          flagSelection: undefined,
+          track: next,
+          mapFocus: trackFocus(next),
+        };
       }),
     loadFlags: (saved) =>
       set((s) => {
@@ -528,7 +569,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
           sections: track.sections.map((section, i) =>
             i === track.current ? { ...section, outcome: 'kept' } : section,
           ),
-          current: track.current + 1,
+          current: nextOpen(track.sections, track.current),
         };
         return { track: next, mapFocus: trackFocus(next) };
       }),
@@ -584,7 +625,7 @@ export const usePlanner = create<PlannerState>()((set, get) => {
             i === index ? { ...section, outcome: result.outcome } : section,
           );
         }
-        const current = index + 1;
+        const current = nextOpen(sections, index);
         const more = current < sections.length;
         const next: ImportedTrack = {
           ...track,
@@ -634,7 +675,10 @@ export const usePlanner = create<PlannerState>()((set, get) => {
     },
     deleteSavedRoute: (id) =>
       set((s) => ({ savedRoutes: s.savedRoutes.filter((r) => r.id !== id) })),
-    closeTrack: () => set((s) => (s.track ? { track: undefined, hoverIndex: undefined } : s)),
+    closeTrack: () =>
+      set((s) =>
+        s.track ? { track: undefined, hoverIndex: undefined, flagSelection: undefined } : s,
+      ),
     setRouteLoading: () => set({ status: { state: 'loading' } }),
     setRoute: (route) =>
       // A new route invalidates the selection: its indices point into the old geometry.

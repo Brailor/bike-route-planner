@@ -1,6 +1,6 @@
 // "Do not ride" flags (README M2): a stretch of a route, kept and avoided in every later route.
 import { segmentLengthsM } from '../geo';
-import type { RouteResult } from '../routing/types';
+import type { RouteAttributes, RouteResult } from '../routing/types';
 import type { AvoidFlag } from '../types';
 import { selectionGeometry, selectionRange, type FlagSelection } from './selection';
 
@@ -19,10 +19,18 @@ export interface FlagDetails {
   note?: string;
 }
 
+/**
+ * The line a flag is picked on: a route, or an opened track (ADR 0010), whose ways are known only once it's matched
+ * to the roads (ADR 0012).
+ */
+export type FlagLine = Pick<RouteResult, 'geometry'> & {
+  attributes: Pick<RouteAttributes, 'osmWayId'> | undefined;
+};
+
 /** OSM ways the selected segments run on, in route order. Segments of untagged or unknown ways have none. */
-export function selectionWayIds(route: RouteResult, selection: FlagSelection): number[] {
+export function selectionWayIds(route: FlagLine, selection: FlagSelection): number[] {
   const [from, to] = selectionRange(selection);
-  const ids = route.attributes.osmWayId
+  const ids = (route.attributes?.osmWayId ?? [])
     .filter((span) => span.from < to && span.to > from && span.value !== null)
     .map((span) => span.value as number);
   return [...new Set(ids)];
@@ -42,7 +50,7 @@ export const flagLengthM = (flag: AvoidFlag) =>
   segmentLengthsM(flag.geometry.coordinates).reduce((sum, l) => sum + l, 0);
 
 export function flagFromSelection(
-  route: RouteResult,
+  route: FlagLine,
   selection: FlagSelection,
   { reason, note }: FlagDetails,
   id: string,

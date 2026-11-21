@@ -322,6 +322,10 @@ flags are avoided strongly rather than blocked, and when a route still has to us
     stretches off the road; splicing; store; hook; panel; map), e2e (stubbed match, through a reroute),
     `e2e:live` (an exported route opened again has the route's breakdown within 3 points; the fixture still
     matches the engine). Each rule confirmed to fail a test when removed
+  - Flagging a stretch of an opened track (user's request, 2026-11-21; ADR 0019): once its sections are answered,
+    "Flag a section" puts the two handles on the track; the new flag is asked about next, then rerouted around or
+    kept like the others. Unit tests (store, panel), e2e (handles dragged on the track, then rerouted); each rule
+    confirmed to fail a test when removed
   - Not done: ride time for an opened track (the surfaces and elevation it needs are there now); the track isn't
     kept across a reload
 
